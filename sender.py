@@ -43,7 +43,7 @@ def worker(indx, num_workers):
 
 if __name__ == '__main__':
     start = time.time()
-    num_workers = 4
+    num_workers = mp.cpu_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)

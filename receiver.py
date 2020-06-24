@@ -22,8 +22,7 @@ def worker(socket):
 
 
 if __name__ == '__main__':
-    num_workers = 5
-
+    num_workers = mp.cpu_count()
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
