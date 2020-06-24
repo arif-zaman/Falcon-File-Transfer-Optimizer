@@ -104,7 +104,7 @@ def bayes_opt():
         Integer(1, 20, name='bsize')
     ]
     
-    experiments = gp_minimize(
+    experiments = forest_minimize(
         do_transfer,
         search_space,
         acq_func="EI",
@@ -112,7 +112,7 @@ def bayes_opt():
         n_random_starts=5,
         random_state=0,
         verbose=True,
-        xi=0.001
+        xi=0.01
     )
     
     logger.info("Best parameters: %s and score: %d" % (experiments.x, experiments.fun))
