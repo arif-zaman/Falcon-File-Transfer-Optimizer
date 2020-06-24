@@ -15,11 +15,12 @@ else:
 root = configurations["data_dir"]["sender"]
 files_name = os.listdir(root)
 transferred = mp.Manager().list()
+end_time = mp.Manager().list()
 BUFFER_SIZE = 256 * 1024 * 1024
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
 
-def worker(indx, num_workers):
+def worker(indx, num_workers, start_time):
     sock = socket.socket()
     sock.connect((HOST, PORT))
     
@@ -37,18 +38,20 @@ def worker(indx, num_workers):
             
         transferred.append(offset)
         logger.debug("finished {u} ...".format(u=filename))
-        
+    
+    end = time.time()
+    end_time.append(end-start_time)
     sock.close()
 
 
 if __name__ == '__main__':
-    start = time.time()
     num_workers = mp.cpu_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    workers = [mp.Process(target=worker, args=(i,num_workers)) for i in range(num_workers)]
+    start = time.time()
+    workers = [mp.Process(target=worker, args=(i,num_workers, start)) for i in range(num_workers)]
     for p in workers:
         p.daemon = True
         p.start()
@@ -58,7 +61,7 @@ if __name__ == '__main__':
             time.sleep(0.01)
         else:
             end = time.time()
-            time_sec = np.round(end-start,3)
+            time_sec = np.round(np.max(end_time),3)
             total = np.round(np.sum(transferred) / (1024*1024*1024), 3)
             thrpt = np.round((total*8*1024)/time_sec,2)
             logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
