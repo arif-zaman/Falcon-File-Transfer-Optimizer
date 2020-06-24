@@ -17,15 +17,12 @@ else:
     logger = mp.log_to_stderr(logging.INFO)
     
 root = configurations["data_dir"]["sender"]
-probing_time = 1
+probing_time = configurations["probing_sec"]
 files_name = os.listdir(root) * configurations["multiplier"]
 score = mp.Value("d", 0.0)
 process_done = mp.Value("i", 0)
 transfer_status = mp.Array("i", [0 for i in range(len(files_name))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(files_name))])
-# transferred = mp.Manager().list()
-# end_time = mp.Manager().list()
-# BUFFER_SIZE = 256 * 1024 * 1024
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
 
@@ -69,7 +66,8 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             file_offsets[i] = offset
     
     process_done.value = process_done.value + 1
-    sock.close()    
+    sock.close()
+    return True 
 
 
 def get_buffer_size(unit):
@@ -86,10 +84,13 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
+    
+    for i in range(num_workers):
+        send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
     
     while process_done.value < num_workers:
             time.sleep(0.01)
@@ -118,6 +119,9 @@ def bayes_opt():
     do_transfer(experiments.x, sample_transfer=False)
 
 
+send_pool = mp.Pool(mp.cpu_count())   
+
+
 if __name__ == '__main__':
     start = time.time()
     bayes_opt()
@@ -126,13 +130,4 @@ if __name__ == '__main__':
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)
     logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
-    # while True:
-    #     if len(transferred) < len(files_name):
-    #         time.sleep(0.01)
-    #     else:
-    #         time_sec = np.round(np.max(end_time), 3)
-    #         total = np.round(np.sum(transferred) / (1024*1024*1024), 3)
-    #         thrpt = np.round((total*8*1024)/time_sec,2)
-    #         logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
-    #         break
         
