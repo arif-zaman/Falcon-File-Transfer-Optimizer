@@ -2,10 +2,14 @@ import socket
 import multiprocessing as mp
 import logging
 import time
+from config import configurations
 
-
-logger = mp.log_to_stderr(logging.DEBUG)
-HOST, PORT = "127.0.0.1", 50021
+HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+if configurations["loglevel"] == "debug":
+    logger = mp.log_to_stderr(logging.DEBUG)
+else:
+    logger = mp.log_to_stderr(logging.INFO)
+    
 
 def worker(socket):
     while True:

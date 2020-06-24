@@ -104,3 +104,4 @@ venv.bak/
 .mypy_cache/
 homework1/
 **/*.DS_Store
+config.py
