@@ -7,18 +7,20 @@ import warnings
 from sendfile import sendfile
 import multiprocessing as mp
 from config import configurations
-from skopt.space import Integer
-from skopt import gp_minimize, forest_minimize, dummy_minimize
+from search import bayes_opt, random_opt
+
 warnings.filterwarnings("ignore", category=FutureWarning)
+configurations["cpu_count"] = mp.cpu_count()
 
 if configurations["loglevel"] == "debug":
     logger = mp.log_to_stderr(logging.DEBUG)
 else:
     logger = mp.log_to_stderr(logging.INFO)
-    
+
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 files_name = os.listdir(root) * configurations["multiplier"]
+
 score = mp.Value("d", 0.0)
 process_done = mp.Value("i", 0)
 transfer_status = mp.Array("i", [0 for i in range(len(files_name))])
@@ -84,13 +86,13 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
     
-    # for i in range(num_workers):
-    #     send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
+    for i in range(num_workers):
+        send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
     
     while process_done.value < num_workers:
             time.sleep(0.01)
@@ -98,33 +100,17 @@ def do_transfer(params, sample_transfer=True):
     return score.value
 
 
-def bayes_opt():
-    search_space  = [
-        Integer(1, mp.cpu_count(), name='transfer_threads'),
-        Integer(1, 20, name='bsize')
-    ]
-    
-    experiments = forest_minimize(
-        do_transfer,
-        search_space,
-        acq_func="EI",
-        n_calls=10,
-        n_random_starts=5,
-        random_state=0,
-        verbose=True,
-        xi=0.01
-    )
-    
-    logger.info("Best parameters: %s and score: %d" % (experiments.x, experiments.fun))
-    do_transfer(experiments.x, sample_transfer=False)
-
-
-send_pool = mp.Pool(mp.cpu_count())   
+send_pool = mp.Pool(configurations["cpu_count"])
 
 
 if __name__ == '__main__':
     start = time.time()
-    bayes_opt()
+    
+    if configurations["method"].lower() == "random":
+        random_opt(do_transfer)
+    else:
+        bayes_opt(configurations, do_transfer, logger)
+        
     end = time.time()
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
