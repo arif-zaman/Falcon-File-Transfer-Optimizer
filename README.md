@@ -1,2 +1,2 @@
 # Throughput Optimization
-    End to end online file transfers optimization with probabilistic programming
+    End to end online file transfers optimization in High Performance Networks
