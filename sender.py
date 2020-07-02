@@ -5,8 +5,7 @@ import logging
 import time
 import warnings
 from sendfile import sendfile
-# import multiprocessing as mp
-import fiber as mp
+import multiprocessing as mp
 from config import configurations
 from search import bayes_opt, random_opt
 
@@ -129,7 +128,8 @@ if __name__ == '__main__':
         random_opt(do_transfer)
     else:
         bayes_opt(configurations, do_transfer, logger)
-        
+    
+    send_pool.close()
     end = time.time()
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
