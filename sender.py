@@ -1,9 +1,9 @@
 import socket
 import os
 import numpy as np
-import logging
 import time
 import warnings
+import logging as log
 from sendfile import sendfile
 import multiprocessing as mp
 from config import configurations
@@ -12,10 +12,12 @@ from search import bayes_opt, random_opt
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
 
+
+FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
-    logger = mp.log_to_stderr(logging.DEBUG)
+    log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.DEBUG)
 else:
-    logger = mp.log_to_stderr(logging.INFO)
+    log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
@@ -43,7 +45,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             file = open(filename, "rb")
             offset = file_offsets[i]
 
-            logger.debug("sending {u} ...".format(u=filename))
+            log.debug("sending {u} ...".format(u=filename))
             total_sent = 0
             while True:
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
@@ -56,13 +58,13 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                     
                     if sent == 0:
                         transfer_status[i] = 1
-                        logger.debug("finished {u} ...".format(u=filename))
+                        log.debug("finished {u} ...".format(u=filename))
                         
                     break
                 
                 if sent == 0:
                     transfer_status[i] = 1
-                    logger.debug("finished {u} ...".format(u=filename)) 
+                    log.debug("finished {u} ...".format(u=filename)) 
                     break
                 
             file_offsets[i] = offset
@@ -89,26 +91,26 @@ def do_transfer(params, sample_transfer=True):
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
-    logger.info(params)
+    log.info(params)
     before_rc = get_retransmitted_packet_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    # for p in workers:
-    #     p.daemon = True
-    #     p.start()
+    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    for p in workers:
+        p.daemon = True
+        p.start()
     
-    for i in range(num_workers):
-        send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
+    # for i in range(num_workers):
+    #     send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
     
     while process_done.value < num_workers:
             time.sleep(0.01)
 
     after_rc = get_retransmitted_packet_count()
     rt_count = after_rc - before_rc
-    logger.info("Packet Retransmitted: {0}".format(rt_count))
+    log.info("Packet Retransmitted: {0}".format(rt_count))
     
     if rt_count == 0:
         rt_count = 1
@@ -127,14 +129,13 @@ if __name__ == '__main__':
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     else:
-        bayes_opt(configurations, do_transfer, logger)
-    
-    send_pool.terminate()
-    send_pool.join()
+        bayes_opt(configurations, do_transfer, log)
     
     end = time.time()
+    send_pool.terminate()
+    send_pool.join()
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)
-    logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
+    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
         

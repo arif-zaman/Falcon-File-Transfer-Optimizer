@@ -1,14 +1,14 @@
 import socket
 import multiprocessing as mp
-import logging
+import logging as log
 import time
 from config import configurations
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 if configurations["loglevel"] == "debug":
-    logger = mp.log_to_stderr(logging.DEBUG)
+    logger = mp.log_to_stderr(log.DEBUG)
 else:
-    logger = mp.log_to_stderr(logging.INFO)
+    logger = mp.log_to_stderr(log.INFO)
     
 
 def worker(socket):
