@@ -5,7 +5,8 @@ import logging
 import time
 import warnings
 from sendfile import sendfile
-import multiprocessing as mp
+# import multiprocessing as mp
+import fiber as mp
 from config import configurations
 from search import bayes_opt, random_opt
 
