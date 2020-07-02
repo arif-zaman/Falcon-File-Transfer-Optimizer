@@ -76,12 +76,21 @@ def get_buffer_size(unit):
     return (2 ** (unit-1)) * 1024
 
 
+def get_retransmitted_packet_count():
+    try:
+        data = os.popen("netstat -s | grep retransmitted").read().split()
+        return int(data[0])
+    except:
+        return -1
+    
+
 def do_transfer(params, sample_transfer=True):
     score.value = 0.0
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
     logger.info(params)
+    before_rc = get_retransmitted_packet_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)
@@ -97,6 +106,9 @@ def do_transfer(params, sample_transfer=True):
     while process_done.value < num_workers:
             time.sleep(0.01)
 
+    after_rc = get_retransmitted_packet_count()
+    logger.info("{0}, {1}, {2}".format(before_rc, after_rc, after_rc-before_rc))
+    score.value = (score.value/ (1024*1024*(1/8)))
     return score.value
 
 

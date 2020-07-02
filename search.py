@@ -12,8 +12,8 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
         black_box_function,
         search_space,
         acq_func="EI",
-        n_calls=configurations["num_of_exp"],
-        n_random_starts=configurations["initial_run"],
+        n_calls=configurations["bayes"]["num_of_exp"],
+        n_random_starts=configurations["bayes"]["initial_run"],
         random_state=0,
         verbose=verbose,
         xi=0.01
