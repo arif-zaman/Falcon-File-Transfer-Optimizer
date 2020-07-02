@@ -129,7 +129,7 @@ if __name__ == '__main__':
     else:
         bayes_opt(configurations, do_transfer, logger)
     
-    send_pool.close()
+    send_pool.terminate()
     end = time.time()
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)

@@ -8,7 +8,7 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
         Integer(1, 20, name='bsize')
     ]
     
-    experiments = forest_minimize(
+    experiments = gp_minimize(
         black_box_function,
         search_space,
         acq_func="EI",
