@@ -91,7 +91,7 @@ def do_transfer(params, sample_transfer=True):
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
-    log.info(params)
+    log.info("Current Parameters: {0}".format(params))
     before_rc = get_retransmitted_packet_count()
     
     if len(files_name) < num_workers:
@@ -110,13 +110,14 @@ def do_transfer(params, sample_transfer=True):
 
     after_rc = get_retransmitted_packet_count()
     rt_count = after_rc - before_rc
-    log.info("Packet Retransmitted: {0}".format(rt_count))
+    thrpt = score.value / (1024*1024*(1/8))
+    log.info("Throughput: {0}, Packet Retransmitted: {1}".format(np.round(thrpt), rt_count))
     
     if rt_count == 0:
         rt_count = 1
     
     if sample_transfer:
-        score.value = np.log2((score.value/ (1024*1024*(1/8)))) - np.log10(rt_count)
+        score.value = np.log2(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
 
 
