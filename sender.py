@@ -95,13 +95,13 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
     
-    # for i in range(num_workers):
-    #     send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
+    for i in range(num_workers):
+        send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
     
     while process_done.value < num_workers:
             time.sleep(0.01)
@@ -112,9 +112,10 @@ def do_transfer(params, sample_transfer=True):
     
     if rt_count == 0:
         rt_count = 1
-        
-    score.value = np.log((score.value/ (1024*1024*(1/8)))) - np.log(rt_count)
-    return np.round(score.value * (-1), 4)
+    
+    if sample_transfer:
+        score.value = np.log((score.value/ (1024*1024*(1/8)))) - np.log(rt_count)
+        return np.round(score.value * (-1), 4)
 
 
 send_pool = mp.Pool(configurations["cpu_count"])
