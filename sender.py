@@ -116,7 +116,7 @@ def do_transfer(params, sample_transfer=True):
         rt_count = 1
     
     if sample_transfer:
-        score.value = np.log((score.value/ (1024*1024*(1/8)))) - np.log(rt_count)
+        score.value = np.log2((score.value/ (1024*1024*(1/8)))) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
 
 
