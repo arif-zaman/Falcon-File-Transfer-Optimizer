@@ -19,7 +19,7 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
         xi=0.01
     )
     
-    logger.info("Best parameters: %s and score: %d" % (experiments.x, experiments.fun))
+    logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
     black_box_function(experiments.x, sample_transfer=False)
     
 

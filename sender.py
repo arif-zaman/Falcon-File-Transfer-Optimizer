@@ -52,7 +52,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                 
                 duration = time.time() - start
                 if sample_transfer and (duration > probing_time):
-                    score.value = score.value - (total_sent/duration)
+                    score.value = score.value + (total_sent/duration)
                     
                     if sent == 0:
                         transfer_status[i] = 1
@@ -107,9 +107,14 @@ def do_transfer(params, sample_transfer=True):
             time.sleep(0.01)
 
     after_rc = get_retransmitted_packet_count()
-    logger.info("{0}, {1}, {2}".format(before_rc, after_rc, after_rc-before_rc))
-    score.value = (score.value/ (1024*1024*(1/8)))
-    return score.value
+    rt_count = after_rc - before_rc
+    logger.info("Packet Retransmitted: {0}".format(rt_count))
+    
+    if rt_count == 0:
+        rt_count = 1
+        
+    score.value = np.log((score.value/ (1024*1024*(1/8)))) - np.log(rt_count)
+    return np.round(score.value * (-1), 4)
 
 
 send_pool = mp.Pool(configurations["cpu_count"])
