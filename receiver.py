@@ -1,5 +1,6 @@
 import socket
 import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor
 import logging as log
 import time
 from config import configurations
@@ -22,7 +23,7 @@ def worker(socket):
 
 
 if __name__ == '__main__':
-    num_workers = mp.cpu_count()
+    num_workers = mp.cpu_count() * 2
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
@@ -30,10 +31,14 @@ if __name__ == '__main__':
     BUFFER_SIZE = 256 * 1024 * 1024
     total = 0
 
-    workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    # workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
+    
+    thread_pool = ThreadPoolExecutor(num_workers)
+    for i in range(num_workers):
+        thread_pool.submit(worker, sock,)
 
     while True:
         try:

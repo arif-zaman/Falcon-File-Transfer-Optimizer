@@ -6,6 +6,7 @@ import warnings
 import logging as log
 from sendfile import sendfile
 import multiprocessing as mp
+from concurrent.futures import ThreadPoolExecutor
 from config import configurations
 from search import bayes_opt, random_opt
 
@@ -16,8 +17,10 @@ configurations["cpu_count"] = mp.cpu_count()
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.DEBUG)
+    mp.log_to_stderr(log.DEBUG)
 else:
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
+
 
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
@@ -45,7 +48,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             file = open(filename, "rb")
             offset = file_offsets[i]
 
-            log.debug("sending {u} ...".format(u=filename))
+            log.debug("sending {u}".format(u=filename))
             total_sent = 0
             while True:
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
@@ -58,13 +61,13 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                     
                     if sent == 0:
                         transfer_status[i] = 1
-                        log.debug("finished {u} ...".format(u=filename))
+                        log.debug("finished {u}".format(u=filename))
                         
                     break
                 
                 if sent == 0:
                     transfer_status[i] = 1
-                    log.debug("finished {u} ...".format(u=filename)) 
+                    log.debug("finished {u}".format(u=filename)) 
                     break
                 
             file_offsets[i] = offset
@@ -101,9 +104,9 @@ def do_transfer(params, sample_transfer=True):
     # for p in workers:
     #     p.daemon = True
     #     p.start()
-    
+        
     for i in range(num_workers):
-        send_pool.apply_async(worker, (buffer_size, i, num_workers, sample_transfer,))
+        thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
     
     while process_done.value < num_workers:
             time.sleep(0.01)
@@ -121,7 +124,7 @@ def do_transfer(params, sample_transfer=True):
         return np.round(score.value * (-1), 4)
 
 
-send_pool = mp.Pool(processes=configurations["cpu_count"])
+thread_pool = ThreadPoolExecutor(configurations["cpu_count"] * 2)
 
 
 if __name__ == '__main__':
@@ -133,8 +136,6 @@ if __name__ == '__main__':
         bayes_opt(configurations, do_transfer, log)
     
     end = time.time()
-    send_pool.terminate()
-    send_pool.join()
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)

@@ -4,19 +4,24 @@ from skopt import gp_minimize, forest_minimize, dummy_minimize
 
 def bayes_opt(configurations, black_box_function, logger, verbose=True):
     search_space  = [
-        Integer(1, configurations['cpu_count'], name='transfer_threads'),
+        Integer(1, configurations['cpu_count'] * 2, name='transfer_threads'),
         Integer(1, 20, name='bsize')
     ]
     
     experiments = gp_minimize(
-        black_box_function,
-        search_space,
-        acq_func="EI",
+        func=black_box_function,
+        dimensions=search_space,
+        acq_func="EI", # [LCB, EI, PI]
+        acq_optimizer="lbfgs", # [sampling, lbfgs]
         n_calls=configurations["bayes"]["num_of_exp"],
         n_random_starts=configurations["bayes"]["initial_run"],
-        random_state=0,
+        random_state=None,
+        x0=None,
+        y0=None,
         verbose=verbose,
-        xi=0.01
+        # callback=None,
+        xi=0.01, # EI or PI
+        # kappa=1.96, # LCB only
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
