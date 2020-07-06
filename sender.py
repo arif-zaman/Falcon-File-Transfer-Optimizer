@@ -8,7 +8,7 @@ from sendfile import sendfile
 import multiprocessing as mp
 from concurrent.futures import ThreadPoolExecutor
 from config import configurations
-from search import bayes_opt, random_opt
+from search import bayes_opt, random_opt, probe_test_config
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -120,7 +120,7 @@ def do_transfer(params, sample_transfer=True):
         rt_count = 1
     
     if sample_transfer:
-        score.value = np.log2(thrpt) - np.log10(rt_count)
+        score.value = np.log2(thrpt) / np.log10(rt_count) if np.log10(rt_count) > 0 else np.log2(thrpt)
         return np.round(score.value * (-1), 4)
 
 
@@ -132,6 +132,10 @@ if __name__ == '__main__':
     
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
+    
+    elif configurations["method"].lower() == "probe":
+        params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
+        probe_test_config(do_transfer, params)
     else:
         bayes_opt(configurations, do_transfer, log)
     

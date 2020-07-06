@@ -30,3 +30,7 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
 
 def random_opt(black_box_function):
     black_box_function([3,12], sample_transfer=False)
+    
+    
+def probe_test_config(black_box_function, params):
+    black_box_function(params, sample_transfer=False)
