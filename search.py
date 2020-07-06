@@ -4,7 +4,7 @@ from skopt import gp_minimize, forest_minimize, dummy_minimize
 
 def bayes_opt(configurations, black_box_function, logger, verbose=True):
     search_space  = [
-        Integer(1, configurations['cpu_count'] * 2, name='transfer_threads'),
+        Integer(1, configurations['cpu_count'] * 1, name='transfer_threads'),
         Integer(1, 20, name='bsize')
     ]
     
