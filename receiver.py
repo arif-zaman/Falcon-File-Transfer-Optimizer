@@ -12,14 +12,16 @@ else:
     logger = mp.log_to_stderr(log.INFO)
     
 
-def worker(socket):
+def worker(sock):
     while True:
-        client, address = socket.accept()
+        client, address = sock.accept()
         logger.debug("{u} connected".format(u=address))
         
         chunk = client.recv(BUFFER_SIZE)
         while chunk:
             chunk = client.recv(BUFFER_SIZE)
+    
+    # sock.close()
 
 
 if __name__ == '__main__':

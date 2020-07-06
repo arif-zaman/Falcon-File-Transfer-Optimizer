@@ -120,7 +120,7 @@ def do_transfer(params, sample_transfer=True):
         rt_count = 1
     
     if sample_transfer:
-        score.value = thrpt/rt_count if rt_count > 0 else thrpt
+        score.value = 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
 
 
@@ -136,6 +136,7 @@ if __name__ == '__main__':
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
         probe_test_config(do_transfer, params)
+        
     else:
         bayes_opt(configurations, do_transfer, log)
     
