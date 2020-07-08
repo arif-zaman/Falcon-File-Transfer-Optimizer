@@ -33,14 +33,14 @@ if __name__ == '__main__':
     BUFFER_SIZE = 256 * 1024 * 1024
     total = 0
 
-    # workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
-    # for p in workers:
-    #     p.daemon = True
-    #     p.start()
+    workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
+    for p in workers:
+        p.daemon = True
+        p.start()
     
-    thread_pool = ThreadPoolExecutor(num_workers)
-    for i in range(num_workers):
-        thread_pool.submit(worker, sock,)
+    # thread_pool = ThreadPoolExecutor(num_workers)
+    # for i in range(num_workers):
+    #     thread_pool.submit(worker, sock,)
 
     while True:
         try:
