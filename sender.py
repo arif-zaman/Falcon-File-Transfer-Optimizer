@@ -120,7 +120,7 @@ def do_transfer(params, sample_transfer=True):
         rt_count = 1
     
     if sample_transfer:
-        score.value = 2 * np.log10(thrpt) - np.log10(rt_count)
+        score.value = thrpt - rt_count # 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
 
 
