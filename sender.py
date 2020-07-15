@@ -127,13 +127,32 @@ def do_transfer(params, sample_transfer=True):
         return np.round(score.value * (-1), 4)
 
 
-# thread_pool = ThreadPoolExecutor(configurations["cpu_count"] * 2)
+def report_throughput(start_time):
+    previous_total = 0
+    previous_time = 0
+    
+    while len(transfer_status) > sum(transfer_status):
+        time.sleep(0.995)
+        curr_time = time.time()
+        time_sec = np.round(curr_time-start_time, 2)
+        total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
+        thrpt = np.round((total*8*1024)/time_sec,2)
+        
+        curr_total = total - previous_total
+        curr_time_sec = time_sec - previous_time
+        curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec,2)
+        previous_time, previous_total = time_sec, total
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
+        
+
+thread_pool = ThreadPoolExecutor(configurations["cpu_count"])
 process_pool = mp.Pool(configurations["cpu_count"])
 
 
 if __name__ == '__main__':
     start = time.time()
     
+    thread_pool.submit(report_throughput, start,)
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     
