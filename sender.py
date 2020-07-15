@@ -30,6 +30,7 @@ score = mp.Value("d", 0.0)
 process_done = mp.Value("i", 0)
 transfer_status = mp.Array("i", [0 for i in range(len(files_name))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(files_name))])
+sent_till_now = mp.Value("d", 0.0)
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
 
@@ -54,6 +55,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
                 offset += sent
                 total_sent += sent
+                sent_till_now.value += sent
                 
                 duration = time.time() - start
                 if sample_transfer and (duration > probing_time):
@@ -132,10 +134,10 @@ def report_throughput(start_time):
     previous_time = 0
     
     while len(transfer_status) > sum(transfer_status):
-        time.sleep(0.995)
+        time.sleep(1)
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time, 2)
-        total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
+        total = np.round(sent_till_now.value / (1024*1024*1024), 3)
         thrpt = np.round((total*8*1024)/time_sec,2)
         
         curr_total = total - previous_total
