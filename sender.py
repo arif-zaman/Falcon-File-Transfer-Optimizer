@@ -100,10 +100,13 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
+        
+    for i in range(num_workers):
+        process_pool.apply_async(worker, args=(buffer_size, i, num_workers, sample_transfer,))
         
     # for i in range(num_workers):
     #     thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
@@ -124,7 +127,8 @@ def do_transfer(params, sample_transfer=True):
         return np.round(score.value * (-1), 4)
 
 
-thread_pool = ThreadPoolExecutor(configurations["cpu_count"] * 2)
+# thread_pool = ThreadPoolExecutor(configurations["cpu_count"] * 2)
+process_pool = mp.Pool(configurations["cpu_count"])
 
 
 if __name__ == '__main__':
@@ -141,6 +145,9 @@ if __name__ == '__main__':
         bayes_opt(configurations, do_transfer, log)
     
     end = time.time()
+    process_pool.close()
+    process_pool.join()
+    
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)
