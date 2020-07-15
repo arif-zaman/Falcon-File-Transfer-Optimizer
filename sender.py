@@ -102,13 +102,13 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    # for p in workers:
-    #     p.daemon = True
-    #     p.start()
+    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    for p in workers:
+        p.daemon = True
+        p.start()
         
-    for i in range(num_workers):
-        process_pool.apply_async(worker, args=(buffer_size, i, num_workers, sample_transfer,))
+    # for i in range(num_workers):
+    #     process_pool.apply_async(worker, args=(buffer_size, i, num_workers, sample_transfer,))
         
     # for i in range(num_workers):
     #     thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
