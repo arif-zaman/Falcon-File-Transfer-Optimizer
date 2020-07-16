@@ -39,6 +39,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
     sock = socket.socket()
     sock.connect((HOST, PORT))
     
+    total_sent = 0
     for i in range(indx, len(files_name), num_workers):
         duration = time.time() - start
         if sample_transfer and (duration > probing_time):
@@ -50,17 +51,14 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             offset = file_offsets[i]
 
             log.debug("sending {u}".format(u=filename))
-            total_sent = 0
             while True:
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
                 offset += sent
                 total_sent += sent
-                # sent_till_now.value += sent
+                sent_till_now.value += sent
                 
                 duration = time.time() - start
                 if sample_transfer and (duration > probing_time):
-                    score.value = score.value + (total_sent/duration)
-                    
                     if sent == 0:
                         transfer_status[i] = 1
                         log.debug("finished {u}".format(u=filename))
@@ -74,6 +72,8 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                 
             file_offsets[i] = offset
     
+    score.value = score.value + (total_sent/duration)
+    log.info(duration)
     process_done.value = process_done.value + 1
     sock.close()
     return True 
@@ -157,7 +157,7 @@ thread_pool = ThreadPoolExecutor(1)
 if __name__ == '__main__':
     start = time.time()
     
-    # thread_pool.submit(report_throughput, start,)
+    thread_pool.submit(report_throughput, start,)
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     
