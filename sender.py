@@ -152,13 +152,13 @@ def report_throughput(start_time):
     time.sleep(1)
     while len(transfer_status) > sum(transfer_status):
         curr_time = time.time()
-        time_sec = np.round(curr_time-start_time, 2)
+        time_sec = np.round(curr_time-start_time)
         total = np.round(sent_till_now.value / (1024*1024*1024), 3)
-        thrpt = np.round((total*8*1024)/time_sec,2)
+        thrpt = np.round((total*8*1024)/time_sec)
         
         curr_total = total - previous_total
         curr_time_sec = time_sec - previous_time
-        curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec,2)
+        curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec)
         previous_time, previous_total = time_sec, total
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         time.sleep(0.998)
