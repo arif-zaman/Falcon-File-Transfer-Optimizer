@@ -55,7 +55,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
                 offset += sent
                 total_sent += sent
-                sent_till_now.value += sent
+                # sent_till_now.value += sent
                 
                 duration = time.time() - start
                 if sample_transfer and (duration > probing_time):
@@ -104,16 +104,16 @@ def do_transfer(params, sample_transfer=True):
     if len(files_name) < num_workers:
         num_workers = len(files_name)
 
-    # workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
-    # for p in workers:
-    #     p.daemon = True
-    #     p.start()
+    workers = [mp.Process(target=worker, args=(buffer_size,i,num_workers, sample_transfer)) for i in range(num_workers)]
+    for p in workers:
+        p.daemon = True
+        p.start()
         
     # for i in range(num_workers):
     #     process_pool.apply_async(worker, args=(buffer_size, i, num_workers, sample_transfer,))
         
-    for i in range(num_workers):
-        thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
+    # for i in range(num_workers):
+    #     thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
     
     while process_done.value < num_workers:
             time.sleep(0.01)
@@ -147,17 +147,17 @@ def report_throughput(start_time):
         curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec,2)
         previous_time, previous_total = time_sec, total
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
-        time.sleep(1)
+        time.sleep(0.998)
         
 
-thread_pool = ThreadPoolExecutor(configurations["cpu_count"]+1)
-process_pool = mp.Pool(configurations["cpu_count"])
+thread_pool = ThreadPoolExecutor(1)
+# process_pool = mp.Pool(configurations["cpu_count"])
 
 
 if __name__ == '__main__':
     start = time.time()
     
-    thread_pool.submit(report_throughput, start,)
+    # thread_pool.submit(report_throughput, start,)
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     
@@ -169,8 +169,8 @@ if __name__ == '__main__':
         bayes_opt(configurations, do_transfer, log)
     
     end = time.time()
-    process_pool.close()
-    process_pool.join()
+    # process_pool.close()
+    # process_pool.join()
     
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
