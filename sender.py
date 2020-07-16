@@ -73,7 +73,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             file_offsets[i] = offset
     
     score.value = score.value + (total_sent/duration)
-    log.info(duration)
+    # log.info(duration)
     process_done.value = process_done.value + 1
     sock.close()
     return True 
@@ -92,6 +92,7 @@ def get_retransmitted_packet_count():
     
 
 def do_transfer(params, sample_transfer=True):
+    start_time = time.time()
     score.value = 0.0
     process_done.value = 0
     num_workers = params[0]
@@ -115,8 +116,21 @@ def do_transfer(params, sample_transfer=True):
     # for i in range(num_workers):
     #     thread_pool.submit(worker, buffer_size, i, num_workers, sample_transfer,)
     
+    duration = time.time() - start_time
     while process_done.value < num_workers:
-            time.sleep(0.01)
+        if sample_transfer:
+            duration = time.time() - start_time
+            if duration > 2*probing_time:
+                log.info("Probing Taking unusually long time, EXITING! (Process Done: {0})".format(process_done.value))
+                break
+        
+        time.sleep(0.01)
+    
+    if process_done.value != num_workers:
+        for p in workers:
+            if p.is_alive():
+                p.terminate()
+                p.join()
     
     if sample_transfer:
         after_rc = get_retransmitted_packet_count()
