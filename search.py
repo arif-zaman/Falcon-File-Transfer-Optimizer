@@ -3,9 +3,18 @@ from skopt import gp_minimize, forest_minimize, dummy_minimize
 
 
 def bayes_opt(configurations, black_box_function, logger, verbose=True):
+    thread_limit = configurations['limits']["thread"]
+    chunk_limit = configurations['limits']["bsize"]
+    
+    if thread_limit == -1:
+        thread_limit = configurations["cpu_count"]
+    
+    if chunk_limit == -1:
+        chunk_limit = 21
+    
     search_space  = [
-        Integer(1, configurations['cpu_count'] * 1, name='transfer_threads'),
-        Integer(1, 20, name='bsize')
+        Integer(1, thread_limit, name='transfer_threads'),
+        Integer(1, chunk_limit, name='bsize')
     ]
     
     experiments = gp_minimize(
