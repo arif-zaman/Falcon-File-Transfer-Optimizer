@@ -96,8 +96,10 @@ def do_transfer(params, sample_transfer=True):
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
-    log.info("Current Parameters: {0}".format(params))
-    before_rc = get_retransmitted_packet_count()
+    log.info("Current Probing Parameters: {0}".format(params))
+    
+    if sample_transfer:
+        before_rc = get_retransmitted_packet_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)
@@ -115,26 +117,26 @@ def do_transfer(params, sample_transfer=True):
     
     while process_done.value < num_workers:
             time.sleep(0.01)
-
-    after_rc = get_retransmitted_packet_count()
-    rt_count = after_rc - before_rc
-    thrpt = score.value / (1024*1024*(1/8))
-    log.info("Throughput: {0}, Packet Retransmitted: {1}".format(np.round(thrpt), rt_count))
-    
-    if rt_count == 0:
-        rt_count = 1
     
     if sample_transfer:
+        after_rc = get_retransmitted_packet_count()
+        rt_count = after_rc - before_rc
+        thrpt = score.value / (1024*1024*(1/8))
+        log.info("Throughput: {0}, Packet Retransmitted: {1}".format(np.round(thrpt), rt_count))
+        
+        # if rt_count == 0:
+        #     rt_count = 1
+        
         score.value = thrpt - rt_count # 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
-
+        
 
 def report_throughput(start_time):
     previous_total = 0
     previous_time = 0
     
+    time.sleep(1)
     while len(transfer_status) > sum(transfer_status):
-        time.sleep(1)
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time, 2)
         total = np.round(sent_till_now.value / (1024*1024*1024), 3)
@@ -145,6 +147,7 @@ def report_throughput(start_time):
         curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec,2)
         previous_time, previous_total = time_sec, total
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
+        time.sleep(1)
         
 
 thread_pool = ThreadPoolExecutor(configurations["cpu_count"])

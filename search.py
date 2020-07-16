@@ -11,7 +11,7 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
     experiments = gp_minimize(
         func=black_box_function,
         dimensions=search_space,
-        acq_func="EI", # [LCB, EI, PI]
+        acq_func="LCB", # [LCB, EI, PI]
         acq_optimizer="lbfgs", # [sampling, lbfgs]
         n_calls=configurations["bayes"]["num_of_exp"],
         n_random_starts=configurations["bayes"]["initial_run"],
@@ -20,8 +20,8 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
         y0=None,
         verbose=verbose,
         # callback=None,
-        xi=0.01, # EI or PI
-        # kappa=1.96, # LCB only
+        # xi=0.01, # EI or PI
+        kappa=1.96, # LCB only
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
