@@ -85,10 +85,16 @@ def get_buffer_size(unit):
 
 def get_retransmitted_packet_count():
     try:
-        data = os.popen("netstat -s | grep retransmitted").read().split()
-        return int(data[0])
+        # if configurations["testbed"] == "xsede":
+        #     data = os.popen("netstat -s | grep retransmited").read().split()
+        # else:
+        #     data = os.popen("netstat -s | grep retransmitted").read().split()
+        
+        data = os.popen("netstat -s | grep segments").read().split()
+        return int(data[3]), int(data[7])
+
     except:
-        return -1
+        return -1, -1
     
 
 def do_transfer(params, sample_transfer=True):
@@ -100,7 +106,7 @@ def do_transfer(params, sample_transfer=True):
     log.info("Current Probing Parameters: {0}".format(params))
     
     if sample_transfer:
-        before_rc = get_retransmitted_packet_count()
+        before_sc, before_rc = get_retransmitted_packet_count()
     
     if len(files_name) < num_workers:
         num_workers = len(files_name)
@@ -133,15 +139,20 @@ def do_transfer(params, sample_transfer=True):
                 p.join()
     
     if sample_transfer:
-        after_rc = get_retransmitted_packet_count()
-        rt_count = after_rc - before_rc
+        after_sc, after_rc = get_retransmitted_packet_count()
+        sc, rc = after_sc-before_sc, after_rc-before_rc
+        
+        lr = 0
+        if sc != 0:
+            lr = rc/sc if sc>rc else 0.99
+            
         thrpt = score.value / (1024*1024*(1/8))
-        log.info("Throughput: {0}, Packet Retransmitted: {1}".format(np.round(thrpt), rt_count))
+        log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
         
         # if rt_count == 0:
         #     rt_count = 1
         
-        score.value = thrpt - rt_count # 2 * np.log10(thrpt) - np.log10(rt_count)
+        score.value = thrpt * (1 - ((1/(1-lr))-1))# 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
         
 
