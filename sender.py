@@ -154,7 +154,21 @@ def do_transfer(params, sample_transfer=True):
         
         score.value = thrpt * (1 - ((1/(1-lr))-1))# 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
-        
+
+
+def report_retransmission_count(start_time):
+    previous_sc, previous_rc = get_retransmitted_packet_count()
+    previous_time = 0
+    
+    time.sleep(1)
+    while len(transfer_status) > sum(transfer_status):
+        curr_time = time.time()
+        time_sec = np.round(curr_time-start_time)
+        after_sc, after_rc = get_retransmitted_packet_count()
+        curr_rc = after_rc - previous_rc
+        previous_time, previous_sc, previous_rc = time_sec, after_sc, after_rc
+        log.info("Retransmission Count @{0}s: {1}".format(time_sec, curr_rc))
+        time.sleep(0.999)
 
 def report_throughput(start_time):
     previous_total = 0
@@ -175,7 +189,7 @@ def report_throughput(start_time):
         time.sleep(0.998)
         
 
-thread_pool = ThreadPoolExecutor(1)
+thread_pool = ThreadPoolExecutor(2)
 # process_pool = mp.Pool(configurations["cpu_count"])
 
 
@@ -183,6 +197,7 @@ if __name__ == '__main__':
     start = time.time()
     
     thread_pool.submit(report_throughput, start,)
+    thread_pool.submit(report_retransmission_count, start,)
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     
