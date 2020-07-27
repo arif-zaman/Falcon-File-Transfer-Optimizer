@@ -52,7 +52,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
 
             log.debug("sending {u}".format(u=filename))
             while True:
-                log.info(str(sock.fileno()) + ", " + str(file.fileno()))
+                # log.info(str(sock.fileno()) + ", " + str(file.fileno()))
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
                 offset += sent
                 total_sent += sent
