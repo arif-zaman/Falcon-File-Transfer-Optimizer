@@ -202,7 +202,7 @@ if __name__ == '__main__':
     # process_pool = mp.Pool(configurations["cpu_count"])
     
     if configurations["method"].lower() == "random":
-        random_opt(do_transfer)
+        random_opt(configurations, do_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]

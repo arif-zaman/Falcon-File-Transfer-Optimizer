@@ -37,7 +37,7 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
     black_box_function(experiments.x, sample_transfer=False)
     
 
-def random_opt(black_box_function):
+def random_opt(configurations, black_box_function, logger, verbose=True):
     thread_limit = configurations['limits']["thread"]
     chunk_limit = configurations['limits']["bsize"]
     
