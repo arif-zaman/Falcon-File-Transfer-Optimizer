@@ -151,6 +151,8 @@ def do_transfer(params, sample_transfer=True):
         log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
         
         score.value = thrpt * (1 - ((1/(1-lr))-1))# 2 * np.log10(thrpt) - np.log10(rt_count)
+        thread_limit = configurations['limits']["thread"]
+        score.value = thrpt * (1 + (thread_limit-num_workers)/(2*thread_limit))
         return np.round(score.value * (-1), 4)
 
 
