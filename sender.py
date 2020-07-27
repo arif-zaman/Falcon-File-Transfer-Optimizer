@@ -152,6 +152,10 @@ def do_transfer(params, sample_transfer=True):
         
         score.value = thrpt * (1 - ((1/(1-lr))-1))# 2 * np.log10(thrpt) - np.log10(rt_count)
         thread_limit = configurations['limits']["thread"]
+        if thread_limit == -1:
+            thread_limit = configurations["cpu_count"]
+            
+        # print(thread_limit, num_workers, (thread_limit - num_workers) / (2*thread_limit))
         score.value = thrpt * (1 + (thread_limit-num_workers)/(2*thread_limit))
         return np.round(score.value * (-1), 4)
 
@@ -194,7 +198,7 @@ if __name__ == '__main__':
     
     start = time.time()
     thread_pool.submit(report_throughput, start,)
-    thread_pool.submit(report_retransmission_count, start,)
+    # thread_pool.submit(report_retransmission_count, start,)
     # process_pool = mp.Pool(configurations["cpu_count"])
     
     if configurations["method"].lower() == "random":
