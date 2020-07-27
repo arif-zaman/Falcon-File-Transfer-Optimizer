@@ -52,6 +52,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
 
             log.debug("sending {u}".format(u=filename))
             while True:
+                log.info(str(sock.fileno()) + ", " + str(file.fileno()))
                 sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
                 offset += sent
                 total_sent += sent
@@ -149,9 +150,6 @@ def do_transfer(params, sample_transfer=True):
         thrpt = score.value / (1024*1024*(1/8))
         log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
         
-        # if rt_count == 0:
-        #     rt_count = 1
-        
         score.value = thrpt * (1 - ((1/(1-lr))-1))# 2 * np.log10(thrpt) - np.log10(rt_count)
         return np.round(score.value * (-1), 4)
 
@@ -187,17 +185,16 @@ def report_throughput(start_time):
         previous_time, previous_total = time_sec, total
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         time.sleep(0.998)
-        
-
-thread_pool = ThreadPoolExecutor(2)
-# process_pool = mp.Pool(configurations["cpu_count"])
 
 
 if __name__ == '__main__':
-    start = time.time()
+    thread_pool = ThreadPoolExecutor(2)
     
+    start = time.time()
     thread_pool.submit(report_throughput, start,)
     thread_pool.submit(report_retransmission_count, start,)
+    # process_pool = mp.Pool(configurations["cpu_count"])
+    
     if configurations["method"].lower() == "random":
         random_opt(do_transfer)
     
