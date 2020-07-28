@@ -34,7 +34,8 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
-    black_box_function(experiments.x, sample_transfer=False)
+    # black_box_function(experiments.x, sample_transfer=False)
+    return experiments.x
     
 
 def random_opt(configurations, black_box_function, logger, verbose=True):
@@ -64,7 +65,8 @@ def random_opt(configurations, black_box_function, logger, verbose=True):
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
-    black_box_function(experiments.x, sample_transfer=False)
+    return experiments.x
+    # black_box_function(experiments.x, sample_transfer=False)
     
     
 def probe_test_config(black_box_function, params):

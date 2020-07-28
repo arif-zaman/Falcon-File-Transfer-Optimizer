@@ -30,7 +30,7 @@ if __name__ == '__main__':
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
     
-    BUFFER_SIZE = 256 * 1024 * 1024
+    BUFFER_SIZE = 1024 * 1024 * 1024
     total = 0
 
     workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
