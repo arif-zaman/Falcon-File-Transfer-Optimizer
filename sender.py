@@ -27,7 +27,6 @@ probing_time = configurations["probing_sec"]
 files_name = os.listdir(root) * configurations["multiplier"]
 probe_again = False
 is_transfer_struck = False
-throughput_logs = []
 is_sampling_phase = False
 
 score = mp.Value("d", 0.0)
@@ -224,8 +223,10 @@ def report_retransmission_count(start_time):
 
 
 def report_throughput(start_time):
+    global probe_again, is_transfer_struck, is_sampling_phase
     previous_total = 0
     previous_time = 0
+    throughput_logs = []
     
     time.sleep(1)
     while len(transfer_status) > sum(transfer_status):
@@ -240,12 +241,13 @@ def report_throughput(start_time):
         previous_time, previous_total = time_sec, total
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
-        
         if not is_sampling_phase:
-            if np.sum(throughput_logs[-5:]) < 1.0:
+            if np.mean(throughput_logs[-5:]) < 1.0:
+                log.info("Alas! Transfer is Stuck!")
                 is_transfer_struck = True
-            
-            if np.sum(throughput_logs[-10:]) < (0.7 * np.sum(throughput_logs[-20:-10])):
+            print(np.mean(throughput_logs[-10:]), np.mean(throughput_logs[-20:-10]))
+            if np.mean(throughput_logs[-10:]) < (0.7 * np.mean(throughput_logs[-20:-10])):
+                log.info("It Seems We Need to Probe Again!")
                 probe_again = True
                 
         time.sleep(0.998)
