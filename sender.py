@@ -242,6 +242,7 @@ def report_throughput(start_time):
         previous_time, previous_total = time_sec, total
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
+        
         if not is_sampling_phase:
             if np.mean(throughput_logs[-5:]) < 1.0:
                 log.info("Alas! Transfer is Stuck!")
@@ -252,6 +253,8 @@ def report_throughput(start_time):
             if np.mean(throughput_logs[-10:]) < (0.7 * max_mean_thrpt):
                 log.info("It Seems We Need to Probe Again!")
                 probe_again = True
+        else:
+             max_mean_thrpt = 0
                 
         time.sleep(0.998)
 
