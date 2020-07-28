@@ -52,8 +52,8 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
 
             log.debug("sending {u}".format(u=filename))
             while True:
-                # log.info(str(sock.fileno()) + ", " + str(file.fileno()))
-                sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
+                # sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
+                sent = sock.sendfile(file, int(offset))
                 offset += sent
                 total_sent += sent
                 sent_till_now.value += sent
@@ -158,7 +158,7 @@ def do_transfer(params, sample_transfer=True):
         # print(thread_limit, num_workers, (thread_limit - num_workers) / (2*thread_limit))
         score.value = thrpt * (1 + (thread_limit-num_workers)/(2*thread_limit))
         return np.round(score.value * (-1), 4)
-
+    
 
 def report_retransmission_count(start_time):
     previous_sc, previous_rc = get_retransmitted_packet_count()
@@ -173,6 +173,7 @@ def report_retransmission_count(start_time):
         previous_time, previous_sc, previous_rc = time_sec, after_sc, after_rc
         log.info("Retransmission Count @{0}s: {1}".format(time_sec, curr_rc))
         time.sleep(0.999)
+
 
 def report_throughput(start_time):
     previous_total = 0
