@@ -227,6 +227,7 @@ def report_throughput(start_time):
     previous_total = 0
     previous_time = 0
     throughput_logs = []
+    max_mean_thrpt = 0
     
     time.sleep(1)
     while len(transfer_status) > sum(transfer_status):
@@ -245,8 +246,10 @@ def report_throughput(start_time):
             if np.mean(throughput_logs[-5:]) < 1.0:
                 log.info("Alas! Transfer is Stuck!")
                 is_transfer_struck = True
-            print(np.mean(throughput_logs[-10:]), np.mean(throughput_logs[-20:-10]))
-            if np.mean(throughput_logs[-10:]) < (0.7 * np.mean(throughput_logs[-20:-10])):
+            
+            max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
+            print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
+            if np.mean(throughput_logs[-10:]) < (0.7 * max_mean_thrpt):
                 log.info("It Seems We Need to Probe Again!")
                 probe_again = True
                 
