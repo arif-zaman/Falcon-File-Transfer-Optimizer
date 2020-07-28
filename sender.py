@@ -191,9 +191,10 @@ def normal_transfer(params):
 
     
 def do_transfer():
-    global is_sampling_phase
+    global is_sampling_phase, probe_again
     
-    is_sampling_phase=True
+    is_sampling_phase = True
+    probe_again = False
     if configurations["method"].lower() == "random":
         params = random_opt(configurations, sample_transfer, log)
     
