@@ -26,8 +26,8 @@ root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 files_name = os.listdir(root) * configurations["multiplier"]
 probe_again = False
-is_transfer_struck = False
-is_sampling_phase = False
+transfer_struck = False
+sampling_phase = False
 
 score = mp.Value("d", 0.0)
 process_done = mp.Value("i", 0)
@@ -154,6 +154,7 @@ def sample_transfer(params):
 
 
 def normal_transfer(params):
+    global transfer_struck, probe_again
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
@@ -170,10 +171,10 @@ def normal_transfer(params):
         p.start()
     
     while process_done.value < num_workers:
-        if is_transfer_struck:
+        if transfer_struck:
             break
         
-        if configurations["method"].lower() != "probe":
+        if configurations["method"].lower() == "bayes":
             files_left = len(transfer_status) - np.sum(transfer_status)
             if probe_again and (files_left>num_workers):
                 break
@@ -181,19 +182,20 @@ def normal_transfer(params):
         time.sleep(0.01)
     
     if process_done.value != num_workers:
+        transfer_struck = False
         for p in workers:
             if p.is_alive():
                 p.terminate()
                 p.join()
                 
     if probe_again and (len(transfer_status) > np.sum(transfer_status)):
-        do_transfer()
+        run_transfer()
 
     
-def do_transfer():
-    global is_sampling_phase, probe_again
+def run_transfer():
+    global sampling_phase, probe_again
     
-    is_sampling_phase = True
+    sampling_phase = True
     probe_again = False
     if configurations["method"].lower() == "random":
         params = random_opt(configurations, sample_transfer, log)
@@ -204,7 +206,7 @@ def do_transfer():
     else:
         params = bayes_opt(configurations, sample_transfer, log)
     
-    is_sampling_phase = False
+    sampling_phase = False
     normal_transfer(params)
     
     
@@ -224,7 +226,7 @@ def report_retransmission_count(start_time):
 
 
 def report_throughput(start_time):
-    global probe_again, is_transfer_struck, is_sampling_phase
+    global probe_again, transfer_struck, sampling_phase
     previous_total = 0
     previous_time = 0
     throughput_logs = []
@@ -245,18 +247,19 @@ def report_throughput(start_time):
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         
-        if not is_sampling_phase:
+        if not sampling_phase and configurations["multiple_probe"]:
             if sampling_ended == 0:
                 sampling_ended = time_sec
                 
             if np.mean(throughput_logs[-5:]) < 1.0:
                 log.info("Alas! Transfer is Stuck!")
-                is_transfer_struck = True
+                transfer_struck = True
             
-            if time_sec - sampling_ended >10:
+            if time_sec - sampling_ended > 10:
                 max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
-                print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
-                if np.mean(throughput_logs[-10:]) < (0.7 * max_mean_thrpt):
+                lower_limit = max_mean_thrpt * configurations["probing_threshold"]
+                # print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
+                if np.mean(throughput_logs[-10:]) < lower_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
         else:
@@ -272,11 +275,10 @@ if __name__ == '__main__':
     start = time.time()
     thread_pool.submit(report_throughput, start,)
     # thread_pool.submit(report_retransmission_count, start,)
-    do_transfer()
+    run_transfer()
     end = time.time()
 
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
-        
