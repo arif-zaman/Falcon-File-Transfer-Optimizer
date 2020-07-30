@@ -39,8 +39,8 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 def worker(buffer_size, indx, num_workers, sample_transfer):
     start = time.time()
-    # sock = socket.socket()
-    # sock.connect((HOST, PORT))
+    sock = socket.socket()
+    sock.connect((HOST, PORT))
     
     total_sent = 0
     for i in range(indx, len(files_name), num_workers):
@@ -56,8 +56,8 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
             log.debug("sending {u}".format(u=filename))
             while True:
                 # sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
-                # sent = sock.sendfile(file=file, offset=int(offset), count=int(buffer_size))
-                data = os.preadv(file,buffer_size,offset)
+                sent = sock.sendfile(file=file, offset=int(offset), count=int(buffer_size))
+                # data = os.preadv(file,buffer_size,offset)
                 offset += sent
                 total_sent += sent
                 sent_till_now.value += sent
@@ -80,7 +80,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
     score.value = score.value + (total_sent/duration)
     # log.info(duration)
     process_done.value = process_done.value + 1
-    # sock.close()
+    sock.close()
     return True 
 
 
