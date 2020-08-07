@@ -162,7 +162,7 @@ def sample_transfer(params):
     score_after = np.sum(file_offsets)
     score = score_after - score_before
     duration = time.time() - start_time         
-    thrpt = (score * 8) / (1024*1024)
+    thrpt = (score * 8) / (duration*1024*1024)
     log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
     
     if rc < 128:
