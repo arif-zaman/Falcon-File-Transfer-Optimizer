@@ -39,48 +39,65 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 def worker(buffer_size, indx, num_workers, sample_transfer):
     start = time.time()
-    sock = socket.socket()
-    sock.connect((HOST, PORT))
     
-    total_sent = 0
-    for i in range(indx, len(files_name), num_workers):
-        duration = time.time() - start
-        if sample_transfer and (duration > probing_time):
-            break
-        
-        if transfer_status[i] == 0:
-            filename = root + files_name[i]
-            file = open(filename, "rb")
-            offset = file_offsets[i]
+    try:
+        sock = socket.socket()
+        sock.connect((HOST, PORT))
+        total_sent = 0
+        max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
+        data_count = 0
+        time_next = time.time() + 1
+        for i in range(indx, len(files_name), num_workers):
+            duration = time.time() - start
+            if sample_transfer and (duration > probing_time):
+                break
+            
+            if transfer_status[i] == 0:
+                filename = root + files_name[i]
+                file = open(filename, "rb")
+                offset = file_offsets[i]
 
-            log.debug("sending {u}".format(u=filename))
-            while True:
-                # sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
-                sent = sock.sendfile(file=file, offset=int(offset), count=int(buffer_size))
-                # data = os.preadv(file,buffer_size,offset)
-                offset += sent
-                total_sent += sent
-                sent_till_now.value += sent
-                
-                duration = time.time() - start
-                if sample_transfer and (duration > probing_time):
+                log.debug("sending {u}".format(u=filename))
+                while True:
+                    # sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size)
+                    sent = sock.sendfile(file=file, offset=int(offset), count=int(buffer_size))
+                    time.sleep(.1)
+                    # data = os.preadv(file,buffer_size,offset)
+                    offset += sent
+                    total_sent += sent
+                    sent_till_now.value += sent
+                    data_count += sent
+                    
+                    if data_count >= max_speed:
+                        data_count = 0
+                        
+                        sleep_for = time_next - time.time()
+                        if sleep_for > 0:
+                            time.sleep(sleep_for)
+                        
+                        time_next = time.time() + 1
+                    
+                    duration = time.time() - start
+                    if sample_transfer and (duration > probing_time):
+                        if sent == 0:
+                            transfer_status[i] = 1
+                            log.debug("finished {u}".format(u=filename))
+                            
+                        break
+                    
                     if sent == 0:
                         transfer_status[i] = 1
-                        log.debug("finished {u}".format(u=filename))
-                        
-                    break
-                
-                if sent == 0:
-                    transfer_status[i] = 1
-                    log.debug("finished {u}".format(u=filename)) 
-                    break
-                
-            file_offsets[i] = offset
-    
-    score.value = score.value + (total_sent/duration)
-    # log.info(duration)
-    process_done.value = process_done.value + 1
-    sock.close()
+                        log.debug("finished {u}".format(u=filename)) 
+                        break
+                    
+                file_offsets[i] = offset
+        
+        score.value = score.value + (total_sent/duration)
+        process_done.value = process_done.value + 1
+        sock.close()
+    except Exception as e:
+        log.error(str(e))
+        
     return True 
 
 
@@ -144,7 +161,8 @@ def sample_transfer(params):
     thrpt = score.value / (1024*1024*(1/8))
     log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
         
-    score.value = thrpt * (1 - ((1/(1-lr))-1)) # 2 * np.log10(thrpt) - np.log10(rt_count)
+    score.value = thrpt - rc
+    # 2 * np.log10(thrpt) - np.log10(rt_count) # thrpt * (1 - ((1/(1-lr))-1)) 
     # thread_limit = configurations['limits']["thread"]
     # if thread_limit == -1:
     #     thread_limit = configurations["cpu_count"]
