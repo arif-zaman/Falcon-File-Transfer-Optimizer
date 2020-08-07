@@ -92,7 +92,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                     
                 file_offsets[i] = offset
         
-        score.value = score.value + (total_sent/duration)
+        # score.value = score.value + (total_sent/duration)
         process_done.value = process_done.value + 1
         sock.close()
     except Exception as e:
@@ -121,7 +121,8 @@ def get_retransmitted_packet_count():
 
 def sample_transfer(params):
     start_time = time.time()
-    score.value = 0.0
+    # score.value = 0.0
+    score_before = np.sum(file_offsets)
     process_done.value = 0
     num_workers = params[0]
     buffer_size = get_buffer_size(params[1])
@@ -150,18 +151,24 @@ def sample_transfer(params):
             if p.is_alive():
                 p.terminate()
                 p.join()
-                
+       
     after_sc, after_rc = get_retransmitted_packet_count()
     sc, rc = after_sc-before_sc, after_rc-before_rc
         
     lr = 0
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
-            
-    thrpt = score.value / (1024*1024*(1/8))
+    
+    score_after = np.sum(file_offsets)
+    score = score_after - score_before
+    duration = time.time() - start_time         
+    thrpt = (score * 8) / (1024*1024)
     log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
+    
+    if rc < 128:
+        rc = 128
         
-    score.value = thrpt - rc
+    score_value = thrpt / np.log2(rc)
     # 2 * np.log10(thrpt) - np.log10(rt_count) # thrpt * (1 - ((1/(1-lr))-1)) 
     # thread_limit = configurations['limits']["thread"]
     # if thread_limit == -1:
@@ -169,7 +176,7 @@ def sample_transfer(params):
             
     # # print(thread_limit, num_workers, (thread_limit - num_workers) / (2*thread_limit))
     # score.value = thrpt * (1 + (thread_limit-num_workers)/(2*thread_limit))
-    return np.round(score.value * (-1), 4)
+    return np.round(score_value * (-1), 4)
 
 
 def normal_transfer(params):
