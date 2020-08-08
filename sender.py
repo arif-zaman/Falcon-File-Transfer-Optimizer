@@ -44,9 +44,11 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
         sock = socket.socket()
         sock.connect((HOST, PORT))
         total_sent = 0
-        max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
-        data_count = 0
-        time_next = time.time() + 1
+        
+        # max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
+        # data_count = 0
+        # time_next = time.time() + 1
+        
         for i in range(indx, len(files_name), num_workers):
             duration = time.time() - start
             if sample_transfer and (duration > probing_time):
@@ -68,14 +70,14 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                     sent_till_now.value += sent
                     data_count += sent
                     
-                    if data_count >= max_speed:
-                        data_count = 0
+                    # if data_count >= max_speed:
+                    #     data_count = 0
                         
-                        sleep_for = time_next - time.time()
-                        if sleep_for > 0:
-                            time.sleep(sleep_for)
+                    #     sleep_for = time_next - time.time()
+                    #     if sleep_for > 0:
+                    #         time.sleep(sleep_for)
                         
-                        time_next = time.time() + 1
+                    #     time_next = time.time() + 1
                     
                     duration = time.time() - start
                     if sample_transfer and (duration > probing_time):
@@ -169,7 +171,9 @@ def sample_transfer(params):
         rc = 128
         
     score_value = thrpt / np.log2(rc)
-    # 2 * np.log10(thrpt) - np.log10(rt_count) # thrpt * (1 - ((1/(1-lr))-1)) 
+    # 2 * np.log10(thrpt) - np.log10(rc) 
+    # # thrpt * (1 - ((1/(1-lr))-1)) 
+    
     # thread_limit = configurations['limits']["thread"]
     # if thread_limit == -1:
     #     thread_limit = configurations["cpu_count"]
@@ -300,7 +304,9 @@ if __name__ == '__main__':
     
     start = time.time()
     thread_pool.submit(report_throughput, start,)
-    # thread_pool.submit(report_retransmission_count, start,)
+    if configurations["loglevel"] == "debug":
+        thread_pool.submit(report_retransmission_count, start,)
+        
     run_transfer()
     end = time.time()
 
