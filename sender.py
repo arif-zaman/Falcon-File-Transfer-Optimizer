@@ -68,7 +68,7 @@ def worker(buffer_size, indx, num_workers, sample_transfer):
                     offset += sent
                     total_sent += sent
                     sent_till_now.value += sent
-                    data_count += sent
+                    # data_count += sent
                     
                     # if data_count >= max_speed:
                     #     data_count = 0
