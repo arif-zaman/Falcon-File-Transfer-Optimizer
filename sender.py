@@ -30,21 +30,20 @@ else:
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
 
-buffer_size = mp.Value("i", 0)
-num_workers = mp.Value("i", 0)
-sample_phase = mp.Value("i", 0)
-kill_transfer = mp.Value("i", 0)
-
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 probe_again = False
+
+buffer_size = mp.Value("i", 0)
+num_workers = mp.Value("i", 0)
+sample_phase = mp.Value("i", 0)
+kill_transfer = mp.Value("i", 0)
 process_done = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
 sent_till_now = mp.Value("d", 0.0)
-
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 

@@ -21,7 +21,7 @@ def worker(sock):
         while chunk:
             chunk = client.recv(BUFFER_SIZE)
     
-    # sock.close()
+    sock.close()
 
 
 if __name__ == '__main__':
@@ -37,10 +37,6 @@ if __name__ == '__main__':
     for p in workers:
         p.daemon = True
         p.start()
-    
-    # thread_pool = ThreadPoolExecutor(num_workers)
-    # for i in range(num_workers):
-    #     thread_pool.submit(worker, sock,)
 
     while True:
         try:
