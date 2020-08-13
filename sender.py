@@ -62,9 +62,9 @@ def worker(indx):
             try:
                 total_sent = 0
                 
-                max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
-                data_count = 0
-                time_next = time.time() + 1
+                # max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
+                # data_count = 0
+                # time_next = time.time() + 1
 
                 # if sample_phase.value == 0:
                 #     log.info((indx, len(file_names), num_workers.value,))
@@ -88,16 +88,16 @@ def worker(indx):
                             offset += sent
                             total_sent += sent
                             sent_till_now.value += sent
-                            data_count += sent
+                            # data_count += sent
                             
-                            if data_count >= max_speed:
-                                data_count = 0
+                            # if data_count >= max_speed:
+                            #     data_count = 0
                                 
-                                sleep_for = time_next - time.time()
-                                if sleep_for > 0:
-                                    time.sleep(sleep_for)
+                            #     sleep_for = time_next - time.time()
+                            #     if sleep_for > 0:
+                            #         time.sleep(sleep_for)
                                 
-                                time_next = time.time() + 1
+                            #     time_next = time.time() + 1
                             
                             duration = time.time() - start
                             if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
