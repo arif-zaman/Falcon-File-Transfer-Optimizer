@@ -258,7 +258,7 @@ def report_retransmission_count(start_time):
     previous_time = 0
     
     time.sleep(1)
-    while (len(transfer_status) > sum(transfer_status)) or (kill_transfer.value == 0):
+    while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
         after_sc, after_rc = get_retransmitted_packet_count()
@@ -277,7 +277,7 @@ def report_throughput(start_time):
     sampling_ended = 0 
     
     time.sleep(1)
-    while (len(transfer_status) > sum(transfer_status)) or (kill_transfer.value == 0):
+    while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
         total = np.round(sent_till_now.value / (1024*1024*1024), 3)
