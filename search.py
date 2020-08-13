@@ -2,19 +2,10 @@ from skopt.space import Integer
 from skopt import gp_minimize, dummy_minimize
 
 
-def bayes_opt(configurations, black_box_function, logger, verbose=True):
-    thread_limit = configurations['limits']["thread"]
-    chunk_limit = configurations['limits']["bsize"]
-    
-    if thread_limit == -1:
-        thread_limit = configurations["cpu_count"]
-    
-    if chunk_limit == -1:
-        chunk_limit = 21
-    
+def bayes_opt(configurations, black_box_function, logger, verbose=True):    
     search_space  = [
-        Integer(1, thread_limit, name='transfer_threads'),
-        Integer(1, chunk_limit, name='bsize')
+        Integer(1, configurations["thread_limit"], name='transfer_threads'),
+        Integer(1, configurations["chunk_limit"], name='bsize')
     ]
     
     experiments = gp_minimize(
@@ -34,23 +25,13 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
-    # black_box_function(experiments.x, sample_transfer=False)
     return experiments.x
     
 
-def random_opt(configurations, black_box_function, logger, verbose=True):
-    thread_limit = configurations['limits']["thread"]
-    chunk_limit = configurations['limits']["bsize"]
-    
-    if thread_limit == -1:
-        thread_limit = configurations["cpu_count"]
-    
-    if chunk_limit == -1:
-        chunk_limit = 21
-    
+def random_opt(configurations, black_box_function, logger, verbose=True):    
     search_space  = [
-        Integer(1, thread_limit, name='transfer_threads'),
-        Integer(1, chunk_limit, name='bsize')
+        Integer(1, configurations["thread_limit"], name='transfer_threads'),
+        Integer(1, configurations["chunk_limit"], name='bsize')
     ]
     
     experiments = dummy_minimize(
@@ -66,7 +47,6 @@ def random_opt(configurations, black_box_function, logger, verbose=True):
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
     return experiments.x
-    # black_box_function(experiments.x, sample_transfer=False)
     
     
 def probe_test_config(black_box_function, params):
