@@ -290,7 +290,7 @@ def report_throughput(start_time):
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         
-        if np.mean(throughput_logs[-10:]) < 1.0:
+        if (sample_phase.value == 0)  and (np.mean(throughput_logs[-10:]) < 1.0):
             log.info("Alas! Transfer is Stuck! Killing it.")
             kill_transfer.value = 1
                 
