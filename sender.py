@@ -33,7 +33,7 @@ else:
 buffer_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
-transfer_stuck = mp.Value("i", 0)
+kill_transfer = mp.Value("i", 0)
 
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
@@ -50,10 +50,10 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 
 def worker(indx):
-    while transfer_stuck.value == 0:
+    while kill_transfer.value == 0:
         if process_status[indx] == 0:
             if (len(transfer_status) == np.sum(transfer_status)):
-                transfer_stuck.value = 1
+                kill_transfer.value = 1
         else:
             start = time.time()
             
@@ -144,6 +144,9 @@ def get_retransmitted_packet_count():
     
 
 def sample_transfer(params):
+    if kill_transfer.value == 1:
+        return 10 ** 10
+        
     start_time = time.time()
     score_before = np.sum(file_offsets)
     process_done.value = 0
@@ -187,8 +190,6 @@ def sample_transfer(params):
     if rc < 128:
         rc = 128
     
-    
-    
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
@@ -216,7 +217,7 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while (process_done.value < num_workers.value) or (transfer_stuck.value == 0):
+    while (process_done.value < num_workers.value) or (kill_transfer.value == 0):
         if configurations["method"].lower() == "bayes":
             files_left = len(transfer_status) - np.sum(transfer_status)
             if probe_again and (files_left>num_workers.value):
@@ -247,7 +248,9 @@ def run_transfer():
         params = bayes_opt(configurations, sample_transfer, log)
     
     sample_phase.value = 0
-    normal_transfer(params)
+    
+    if kill_transfer.value == 0:
+        normal_transfer(params)
     
     
 def report_retransmission_count(start_time):
@@ -255,7 +258,7 @@ def report_retransmission_count(start_time):
     previous_time = 0
     
     time.sleep(1)
-    while len(transfer_status) > sum(transfer_status):
+    while (len(transfer_status) > sum(transfer_status)) or (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
         after_sc, after_rc = get_retransmitted_packet_count()
@@ -274,7 +277,7 @@ def report_throughput(start_time):
     sampling_ended = 0 
     
     time.sleep(1)
-    while len(transfer_status) > sum(transfer_status):
+    while (len(transfer_status) > sum(transfer_status)) or (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
         total = np.round(sent_till_now.value / (1024*1024*1024), 3)
@@ -289,7 +292,7 @@ def report_throughput(start_time):
         
         if np.mean(throughput_logs[-10:]) < 1.0:
             log.info("Alas! Transfer is Stuck! Killing it.")
-            transfer_stuck.value = 1
+            kill_transfer.value = 1
                 
         if (sample_phase.value == 0) and configurations["multiple_probe"]:
             if sampling_ended == 0:
