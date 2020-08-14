@@ -49,15 +49,14 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 
 def worker(indx):
-    sock = socket.socket()
-    sock.connect((HOST, PORT))
-    
     while kill_transfer.value == 0:
         if process_status[indx] == 0:
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
             start = time.time()
+            sock = socket.socket()
+            sock.connect((HOST, PORT))
             
             try:
                 total_sent = 0
@@ -116,12 +115,12 @@ def worker(indx):
                 
                 # log.info("Process Done ... {0}".format(indx))
                 process_done.value = process_done.value + 1
+                sock.close()
             except Exception as e:
                 log.error(str(e))
                 
             process_status[indx] = 0
     
-    sock.close()
     return True 
 
 
@@ -130,15 +129,9 @@ def get_buffer_size(unit):
 
 
 def get_retransmitted_packet_count():
-    try:
-        # if configurations["testbed"] == "xsede":
-        #     data = os.popen("netstat -s | grep retransmited").read().split()
-        # else:
-        #     data = os.popen("netstat -s | grep retransmitted").read().split()
-        
+    try:        
         data = os.popen("netstat -s | grep segments").read().split()
         return int(data[3]), int(data[7])
-
     except:
         return -1, -1
     
@@ -164,7 +157,7 @@ def sample_transfer(params):
     while process_done.value < num_workers.value:
         duration = time.time() - start_time
         if duration > 2*probing_time:
-            log.info("Probing Taking unusually long time, EXITING! (Process Done: {0})".format(process_done.value))
+            log.info("Force EXIT! (Process Done: {0})".format(process_done.value))
             break
         
         time.sleep(0.01)
@@ -190,15 +183,11 @@ def sample_transfer(params):
     if rc < 128:
         rc = 128
     
-    score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = thrpt / np.log2(rc)
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
-    
-    # thread_limit = configurations['limits']["thread"]
-    # if thread_limit == -1:
-    #     thread_limit = configurations["cpu_count"]
-    # print(thread_limit, num_workers.value, (thread_limit - num_workers.value) / (2*thread_limit))
-    # score_value = thrpt * (1 + (thread_limit-num_workers.value)/(2*thread_limit))
+    # thrpt * (1 - C * ((1/(1-lr))-1)) 
+    # thrpt * (1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     
     return np.round(score_value * (-1), 4)
 
@@ -291,7 +280,7 @@ def report_throughput(start_time):
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         
         if (sample_phase.value == 0)  and (np.mean(throughput_logs[-10:]) < 1.0):
-            log.info("Alas! Transfer is Stuck! Killing it.")
+            log.info("Alas! Transfer is Stuck. Killing it!")
             kill_transfer.value = 1
                 
         if (sample_phase.value == 0) and configurations["multiple_probe"]:
