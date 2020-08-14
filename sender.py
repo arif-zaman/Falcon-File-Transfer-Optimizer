@@ -55,6 +55,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
+                sock.settimeout(1)
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
@@ -109,8 +110,7 @@ def worker(indx):
                 process_status[indx] = 0
                 sock.close()
             except Exception as e:
-                process_status[indx] = 0
-                log.error(str(e))
+                log.error("{0}, {1}".format(indx, str(e)))
     
     process_status[indx] == 0
     return True 
