@@ -28,7 +28,7 @@ if configurations["loglevel"] == "debug":
 else:
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
-
+emulab_test = False
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
@@ -46,8 +46,6 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 
 def worker(indx):
-    sock = socket.socket()
-    sock.connect((HOST, PORT))
     while kill_transfer.value == 0:
         if process_status[indx] == 0:
             if (len(transfer_status) == np.sum(transfer_status)):
@@ -56,9 +54,13 @@ def worker(indx):
             start = time.time()
             
             try:
-                max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
-                data_count = 0
-                time_next = time.time() + 1
+                sock = socket.socket()
+                sock.connect((HOST, PORT))
+                
+                if emulab_test:
+                    max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
+                    data_count = 0
+                    time_next = time.time() + 1
 
                 if sample_phase.value == 0:
                     log.info((indx, len(file_names), num_workers.value,))
@@ -80,15 +82,16 @@ def worker(indx):
                             offset += sent
                             file_offsets[i] = offset
                             
-                            data_count += sent
-                            if data_count >= max_speed:
-                                data_count = 0
-                                
-                                sleep_for = time_next - time.time()
-                                if sleep_for > 0:
-                                    time.sleep(sleep_for)
-                                
-                                time_next = time.time() + 1
+                            if emulab_test:
+                                data_count += sent
+                                if data_count >= max_speed:
+                                    data_count = 0
+                                    
+                                    sleep_for = time_next - time.time()
+                                    if sleep_for > 0:
+                                        time.sleep(sleep_for)
+                                    
+                                    time_next = time.time() + 1
                             
                             duration = time.time() - start
                             if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
@@ -104,12 +107,12 @@ def worker(indx):
                                 break
                 
                 process_status[indx] = 0
+                sock.close()
             except Exception as e:
                 process_status[indx] = 0
                 log.error(str(e))
     
     process_status[indx] == 0
-    sock.close()
     return True 
 
 
