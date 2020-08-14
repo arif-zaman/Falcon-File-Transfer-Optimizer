@@ -4,9 +4,8 @@ import numpy as np
 import time
 import warnings
 import logging as log
-# from sendfile import sendfile
 import multiprocessing as mp
-from concurrent.futures import ThreadPoolExecutor
+from threading import Thread
 from config import configurations
 from search import bayes_opt, random_opt, probe_test_config
 
@@ -43,7 +42,6 @@ process_done = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
-sent_till_now = mp.Value("d", 0.0)
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
@@ -51,7 +49,6 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 def worker(indx):
     while kill_transfer.value == 0:
         if process_status[indx] == 0:
-            log.info((len(transfer_status), np.sum(transfer_status)))
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
@@ -60,8 +57,6 @@ def worker(indx):
             sock.connect((HOST, PORT))
             
             try:
-                total_sent = 0
-                
                 # max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
                 # data_count = 0
                 # time_next = time.time() + 1
@@ -80,16 +75,13 @@ def worker(indx):
                         offset = file_offsets[i]
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
-                        while True and process_status[indx] == 1:
-                            # sent = sendfile(sock.fileno(), file.fileno(), offset, buffer_size.value)
+                        while process_status[indx] == 1:
                             sent = sock.sendfile(file=file, offset=int(offset), count=buffer_size.value)
-                            time.sleep(.1)
                             # data = os.preadv(file,buffer_size.value,offset)
                             offset += sent
-                            total_sent += sent
-                            sent_till_now.value += sent
-                            # data_count += sent
+                            file_offsets[i] = offset
                             
+                            # data_count += sent
                             # if data_count >= max_speed:
                             #     data_count = 0
                                 
@@ -111,18 +103,14 @@ def worker(indx):
                                 transfer_status[i] = 1
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
-                            
-                        file_offsets[i] = offset
                 
-                # log.info("Process Done ... {0}".format(indx))
+                process_status[indx] = 0
                 process_done.value = process_done.value + 1
                 sock.close()
-                log.info("{0} Exited".format(indx))
             except Exception as e:
                 log.error(str(e))
-                
-            process_status[indx] = 0
     
+    process_status[indx] == 0
     return True 
 
 
@@ -157,18 +145,8 @@ def sample_transfer(params):
         process_status[i] = 1
         
     while process_done.value < num_workers.value:
-        duration = time.time() - start_time
-        if duration > 2*probing_time:
-            log.info("Force EXIT! (Process Done: {0})".format(process_done.value))
-            break
-        
         time.sleep(0.01)
     
-    if process_done.value != num_workers.value:
-        for i in range(num_workers.value):
-            process_status[i] = 0
-    
-    time.sleep(0.1)
     after_sc, after_rc = get_retransmitted_packet_count()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
@@ -208,17 +186,8 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while (process_done.value < num_workers.value) or (kill_transfer.value == 0):
-        if configurations["method"].lower() == "bayes":
-            files_left = len(transfer_status) - np.sum(transfer_status)
-            if probe_again and (files_left>num_workers.value):
-                break
-        
+    while np.sum(process_status)>0:
         time.sleep(0.01)
-    
-    if process_done.value != num_workers.value:
-        for i in range(num_workers.value):
-            process_status[i] = 0
                 
     # if probe_again and (len(transfer_status) > np.sum(transfer_status)):
     #     run_transfer()
@@ -271,8 +240,8 @@ def report_throughput(start_time):
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
-        total = np.round(sent_till_now.value / (1024*1024*1024), 3)
-        thrpt = np.round((total*8*1024)/time_sec)
+        total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
+        thrpt = np.round((total*8*1024)/time_sec,2)
         
         curr_total = total - previous_total
         curr_time_sec = time_sec - previous_time
@@ -281,7 +250,7 @@ def report_throughput(start_time):
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         
-        if ((time_sec - sampling_ended) > 10)  and (np.mean(throughput_logs[-10:]) < 1.0):
+        if (sample_phase.value == 0) and ((time_sec - sampling_ended) > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
             log.info("Alas! Transfer is Stuck. Killing it!")
             kill_transfer.value = 1
                 
@@ -311,25 +280,23 @@ if __name__ == '__main__':
     for p in workers:
         p.daemon = True
         p.start()
-        
-    thread_pool = ThreadPoolExecutor(3)
     
     start = time.time()
-    thread_pool.submit(report_throughput, start,)
+    throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
+    throughput_thread.start()
     
     if configurations["loglevel"] == "debug":
-        thread_pool.submit(report_retransmission_count, start,)
+        retransmission_thread = Thread(target=report_retransmission_count, args=(start,), daemon=True)
         
-    # thread_pool.submit(run_transfer,)
     run_transfer()
     end = time.time()
-    
-    for p in workers:
-        if p.is_alive():
-            p.terminate()
-            p.join()
             
     time_sec = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_sec,2)
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
+    
+    for p in workers:
+        if p.is_alive():
+            p.terminate()
+            p.join(timeout=0.1)
