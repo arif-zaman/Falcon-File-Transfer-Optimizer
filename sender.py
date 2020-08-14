@@ -38,7 +38,6 @@ buffer_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
 kill_transfer = mp.Value("i", 0)
-process_done = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
@@ -105,7 +104,6 @@ def worker(indx):
                                 break
                 
                 process_status[indx] = 0
-                process_done.value = process_done.value + 1
                 sock.close()
             except Exception as e:
                 log.error(str(e))
@@ -132,7 +130,6 @@ def sample_transfer(params):
         
     start_time = time.time()
     score_before = np.sum(file_offsets)
-    process_done.value = 0
     num_workers.value = params[0]
     buffer_size.value = get_buffer_size(params[1])
     log.info("Current Probing Parameters: {0}".format(params))
@@ -144,7 +141,7 @@ def sample_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
         
-    while process_done.value < num_workers.value:
+    while np.sum(process_status)>0:
         time.sleep(0.01)
     
     after_sc, after_rc = get_retransmitted_packet_count()
@@ -174,7 +171,6 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     global probe_again
-    process_done.value = 0
     num_workers.value = params[0]
     buffer_size.value = get_buffer_size(params[1])
     log.info("Normal Transfer -- Probing Parameters: {0}".format(params))
