@@ -165,7 +165,8 @@ def sample_transfer(params):
     if process_done.value != num_workers.value:
         for i in range(num_workers.value):
             process_status[i] = 0
-       
+    
+    time.sleep(0.1)
     after_sc, after_rc = get_retransmitted_packet_count()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
@@ -173,10 +174,9 @@ def sample_transfer(params):
     score = score_after - score_before
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1024*1024)
-    log.info("Throughput: {0}, Packet Sent: {1}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
+    log.info("Throughput: {0}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
         
-    lr = 0
-    C = 10
+    lr, C = 0, 10
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
         
