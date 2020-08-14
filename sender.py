@@ -143,6 +143,10 @@ def sample_transfer(params):
         process_status[i] = 1
         
     while np.sum(process_status)>0:
+        if (time.time()-start_time) > probing_time:
+            for i in range(num_workers.value):
+                process_status[i] = 0
+            
         time.sleep(0.01)
     
     after_sc, after_rc = get_retransmitted_packet_count()
@@ -183,7 +187,7 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while np.sum(process_status)>0:
+    while np.sum(process_status) > 0 and kill_transfer.value == 0:
         time.sleep(0.01)
                 
     # if probe_again and (len(transfer_status) > np.sum(transfer_status)):
@@ -246,16 +250,16 @@ def report_throughput(start_time):
         previous_time, previous_total = time_sec, total
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
-        
-        if (sample_phase.value == 0) and ((time_sec - sampling_ended) > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
-            log.info("Alas! Transfer is Stuck. Killing it!")
-            kill_transfer.value = 1
-                
-        if (sample_phase.value == 0) and configurations["multiple_probe"]:
+
+        if sample_phase.value == 0:
             if sampling_ended == 0:
                 sampling_ended = time_sec
             
-            if time_sec - sampling_ended > 10:
+            if (time_sec - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
+                log.info("Alas! Transfer is Stuck. Killing it!")
+                kill_transfer.value = 1
+                
+            if configurations["multiple_probe"] and time_sec - sampling_ended > 10:
                 max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
                 # print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
