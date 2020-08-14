@@ -46,14 +46,14 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 
 def worker(indx):
+    sock = socket.socket()
+    sock.connect((HOST, PORT))
     while kill_transfer.value == 0:
         if process_status[indx] == 0:
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
             start = time.time()
-            sock = socket.socket()
-            sock.connect((HOST, PORT))
             
             try:
                 max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
@@ -104,12 +104,12 @@ def worker(indx):
                                 break
                 
                 process_status[indx] = 0
-                sock.close()
             except Exception as e:
                 process_status[indx] = 0
                 log.error(str(e))
     
     process_status[indx] == 0
+    sock.close()
     return True 
 
 
