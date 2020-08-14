@@ -51,6 +51,7 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 def worker(indx):
     while kill_transfer.value == 0:
         if process_status[indx] == 0:
+            log.info((len(transfer_status), np.sum(transfer_status)))
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
@@ -116,6 +117,7 @@ def worker(indx):
                 # log.info("Process Done ... {0}".format(indx))
                 process_done.value = process_done.value + 1
                 sock.close()
+                log.info("{0} Exited".format(indx))
             except Exception as e:
                 log.error(str(e))
                 
@@ -279,7 +281,7 @@ def report_throughput(start_time):
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
         
-        if (sample_phase.value == 0)  and (np.mean(throughput_logs[-10:]) < 1.0):
+        if ((time_sec - sampling_ended) > 10)  and (np.mean(throughput_logs[-10:]) < 1.0):
             log.info("Alas! Transfer is Stuck. Killing it!")
             kill_transfer.value = 1
                 
