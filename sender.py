@@ -190,12 +190,12 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while np.sum(process_status) > 0 and kill_transfer.value == 0:
+    while (np.sum(process_status) > 0) and (kill_transfer.value == 0) and (not probe_again):
         time.sleep(0.01)
-                
+
     if probe_again and (len(transfer_status) > np.sum(transfer_status)):
         run_transfer()
-
+    
     
 def run_transfer():
     global probe_again
