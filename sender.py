@@ -317,7 +317,7 @@ def report_throughput(start_time):
                     probe_again = True
                     configurations["thread"] = {
                         "min": num_workers.value,
-                        "max": int(num_workers*2),
+                        "max": int(num_workers.value*2),
                         "iteration": 5,
                         "random_probe": 2
                     }
