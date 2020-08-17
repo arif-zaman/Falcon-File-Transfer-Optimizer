@@ -29,12 +29,15 @@ else:
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
 emulab_test = False
+if configurations["emulab_test"] is not None:
+    emulab_test = configurations["emulab_test"]
+    
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 probe_again = False
 
-buffer_size = mp.Value("i", 0)
+chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
 kill_transfer = mp.Value("i", 0)
@@ -55,17 +58,14 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(1)
+                sock.settimeout(configurations["timeout"])
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    max_speed = (50 * 1024 * 1024)/8 # 50k * 1024 = bytes
+                    max_speed = (10 * 1024 * 1024)/8
                     data_count = 0
                     time_next = time.time() + 1
 
-                if sample_phase.value == 0:
-                    log.info((indx, len(file_names), num_workers.value,))
-                    
                 for i in range(indx, len(file_names), num_workers.value):
                     duration = time.time() - start
                     if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
@@ -78,8 +78,8 @@ def worker(indx):
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
                         while process_status[indx] == 1:
-                            sent = sock.sendfile(file=file, offset=int(offset), count=buffer_size.value)
-                            # data = os.preadv(file,buffer_size.value,offset)
+                            sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                            # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
                             file_offsets[i] = offset
                             
@@ -135,7 +135,7 @@ def sample_transfer(params):
     start_time = time.time()
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
-    buffer_size.value = get_buffer_size(params[1])
+    chunk_size.value = get_buffer_size(params[1])
     log.info("Current Probing Parameters: {0}".format(params))
     
     before_sc, before_rc = get_retransmitted_packet_count()
@@ -168,7 +168,7 @@ def sample_transfer(params):
     if rc < 128:
         rc = 128
     
-    score_value = thrpt / np.log2(rc)
+    score_value = thrpt * (1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
     # thrpt * (1 - C * ((1/(1-lr))-1)) 
@@ -180,7 +180,7 @@ def sample_transfer(params):
 def normal_transfer(params):
     global probe_again
     num_workers.value = params[0]
-    buffer_size.value = get_buffer_size(params[1])
+    chunk_size.value = get_buffer_size(params[1])
     log.info("Normal Transfer -- Probing Parameters: {0}".format(params))
     
     files_left = len(transfer_status) - np.sum(transfer_status)
@@ -262,7 +262,7 @@ def report_throughput(start_time):
                 log.info("Alas! Transfer is Stuck. Killing it!")
                 kill_transfer.value = 1
                 
-            if configurations["multiple_probe"] and time_sec - sampling_ended > 10:
+            if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
                 max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
                 # print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
@@ -276,8 +276,7 @@ def report_throughput(start_time):
         time.sleep(0.998)
 
 
-workers = [mp.Process(target=worker, 
-                      args=(i,)) for i in range(configurations["thread_limit"])]
+workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["thread_limit"])]
 
 
 if __name__ == '__main__':
