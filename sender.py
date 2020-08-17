@@ -39,6 +39,7 @@ probe_again = False
 
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
+timeout_count = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
 kill_transfer = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
@@ -109,6 +110,11 @@ def worker(indx):
                 
                 process_status[indx] = 0
                 sock.close()
+            
+            except socket.timeout as e:
+                timeout_count.value = timeout_count.value + 1
+                log.error("{0}, {1}".format(indx, str(e)))
+                
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
     
@@ -133,6 +139,7 @@ def sample_transfer(params):
         return 10 ** 10
         
     start_time = time.time()
+    timeout_count.value = 0
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
@@ -169,6 +176,9 @@ def sample_transfer(params):
         rc = 128
     
     score_value = thrpt * (1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
+    if timeout_count.value > 0:
+        score_value = score_value / timeout_count.value
+         
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
     # thrpt * (1 - C * ((1/(1-lr))-1)) 
@@ -179,6 +189,7 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     global probe_again
+    timeout_count.value = 0
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
     log.info("Normal Transfer -- Probing Parameters: {0}".format(params))
