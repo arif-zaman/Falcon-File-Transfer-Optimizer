@@ -1,8 +1,9 @@
 from skopt.space import Integer
 from skopt import gp_minimize, dummy_minimize
+# from bayes_opt import BayesianOptimization
 
 
-def bayes_opt(configurations, black_box_function, logger, verbose=True):    
+def bayes_sci_opt(configurations, black_box_function, logger, verbose=True):    
     search_space  = [
         Integer(1, configurations["thread_limit"], name='transfer_threads'),
         Integer(1, configurations["chunk_limit"], name='bsize')
@@ -25,7 +26,11 @@ def bayes_opt(configurations, black_box_function, logger, verbose=True):
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
-    return experiments.x
+    indx = experiments.func_vals.argsort()[1]
+    logger.info("2nd Best parameters: {0} and score: {1}".format(experiments.x_iters[indx], 
+                                                                 experiments.func_vals[indx]))
+    # return experiments.x
+    return experiments.x_iters[indx]
     
 
 def random_opt(configurations, black_box_function, logger, verbose=True):    

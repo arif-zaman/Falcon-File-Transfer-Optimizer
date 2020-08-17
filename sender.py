@@ -7,7 +7,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import bayes_opt, random_opt, probe_test_config
+from search import bayes_sci_opt, random_opt, probe_test_config
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -220,7 +220,7 @@ def run_transfer():
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
         
     else:
-        params = bayes_opt(configurations, sample_transfer, log)
+        params = bayes_sci_opt(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     
