@@ -7,7 +7,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import bayes_sci_opt, random_opt, probe_test_config
+from search import initial_probe, repetitive_probe, random_opt, probe_test_config
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -19,6 +19,13 @@ if configurations["thread_limit"] == -1:
     
 if configurations["chunk_limit"] == -1:
     configurations["chunk_limit"] = 21
+    
+configurations["thread"] = {
+    "min": 1,
+    "max": configurations["thread_limit"],
+    "iteration": configurations["bayes"]["num_of_exp"],
+    "random_probe": configurations["bayes"]["initial_run"]
+}
 
 
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
@@ -36,6 +43,7 @@ root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 probe_again = False
+sample_phase_number = 0
 
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
@@ -135,6 +143,7 @@ def get_retransmitted_packet_count():
     
 
 def sample_transfer(params):
+    global sample_phase_number
     if kill_transfer.value == 1:
         return 10 ** 10
         
@@ -142,7 +151,10 @@ def sample_transfer(params):
     timeout_count.value = 0
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
-    chunk_size.value = get_buffer_size(params[1])
+    
+    if sample_phase_number == 1:
+        chunk_size.value = get_buffer_size(params[1])
+        
     log.info("Current Probing Parameters: {0}".format(params))
     
     before_sc, before_rc = get_retransmitted_packet_count()
@@ -176,8 +188,8 @@ def sample_transfer(params):
         rc = 128
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
-    if timeout_count.value > 0:
-        score_value = score_value / timeout_count.value
+    # if timeout_count.value > 0:
+    #     score_value = score_value / timeout_count.value
          
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
@@ -209,7 +221,7 @@ def normal_transfer(params):
     
     
 def run_transfer():
-    global probe_again
+    global probe_again, sample_phase_number
     sample_phase.value = 1
     probe_again = False
     
@@ -220,7 +232,11 @@ def run_transfer():
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
         
     else:
-        params = bayes_sci_opt(configurations, sample_transfer, log)
+        sample_phase_number += 1
+        if sample_phase_number == 1:
+            params = initial_probe(configurations, sample_transfer, log)
+        else:
+            params = repetitive_probe(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     
@@ -276,10 +292,27 @@ def report_throughput(start_time):
             if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
                 max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
-                # print(np.mean(throughput_logs[-10:]), max_mean_thrpt)
+                upper_limit = max_mean_thrpt * (2-configurations["probing_threshold"])
+                
                 if np.mean(throughput_logs[-10:]) < lower_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
+                    configurations["thread"] = {
+                        "min": int(num_workers.value/2),
+                        "max": num_workers.value,
+                        "iteration": 5,
+                        "random_probe": 2
+                    }
+
+                if np.mean(throughput_logs[-10:]) > upper_limit:
+                    log.info("It Seems We Need to Probe Again!")
+                    probe_again = True
+                    configurations["thread"] = {
+                        "min": num_workers.value,
+                        "max": int(num_workers*2),
+                        "iteration": 5,
+                        "random_probe": 2
+                    }
         else:
             max_mean_thrpt = 0
             sampling_ended = 0
