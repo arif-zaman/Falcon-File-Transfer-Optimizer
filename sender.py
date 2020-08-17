@@ -190,8 +190,8 @@ def sample_transfer(params):
         rc = 128
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
-    # if timeout_count.value > 0:
-    #     score_value = score_value / timeout_count.value
+    if timeout_count.value > 0:
+        score_value = score_value / timeout_count.value
          
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
