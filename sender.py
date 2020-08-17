@@ -193,8 +193,8 @@ def normal_transfer(params):
     while np.sum(process_status) > 0 and kill_transfer.value == 0:
         time.sleep(0.01)
                 
-    # if probe_again and (len(transfer_status) > np.sum(transfer_status)):
-    #     run_transfer()
+    if probe_again and (len(transfer_status) > np.sum(transfer_status)):
+        run_transfer()
 
     
 def run_transfer():
@@ -271,7 +271,7 @@ def report_throughput(start_time):
                     probe_again = True
         else:
             max_mean_thrpt = 0
-            sampling_ended = 0 
+            sampling_ended = 0
                 
         time.sleep(0.998)
 
