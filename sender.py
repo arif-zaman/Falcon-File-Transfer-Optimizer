@@ -227,16 +227,17 @@ def normal_transfer(params):
     
 def run_transfer():
     global probe_again, sample_phase_number
-    sample_phase.value = 1
     probe_again = False
     
     if configurations["method"].lower() == "random":
+        sample_phase.value = 1
         params = random_opt(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
         
     else:
+        sample_phase.value = 1
         sample_phase_number += 1
         if sample_phase_number == 1:
             params = initial_probe(configurations, sample_transfer, log)
@@ -244,7 +245,6 @@ def run_transfer():
             params = repetitive_probe(configurations, sample_transfer, log)
     
     sample_phase.value = 0
-    
     if kill_transfer.value == 0:
         normal_transfer(params)
     
@@ -294,12 +294,15 @@ def report_throughput(start_time):
                 log.info("Alas! Transfer is Stuck. Killing it!")
                 kill_transfer.value = 1
                 
-            if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
-                max_mean_thrpt = max(max_mean_thrpt, np.mean(throughput_logs[-10:]))
+            if configurations["multiple_probe"] and (time_sec - sampling_ended > 20):
+                n = 10
+                last_n_sec_thrpt = np.mean(throughput_logs[-n:])
+                max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
+                min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
-                upper_limit = max_mean_thrpt * (2-configurations["probing_threshold"])
+                upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
                 
-                if np.mean(throughput_logs[-10:]) < lower_limit:
+                if last_n_sec_thrpt < lower_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
                     configurations["thread"] = {
@@ -309,7 +312,7 @@ def report_throughput(start_time):
                         "random_probe": 2
                     }
 
-                if np.mean(throughput_logs[-10:]) > upper_limit:
+                if last_n_sec_thrpt > upper_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
                     configurations["thread"] = {
@@ -320,6 +323,7 @@ def report_throughput(start_time):
                     }
         else:
             max_mean_thrpt = 0
+            min_mean_thrpt = 100000
             sampling_ended = 0
                 
         time.sleep(0.998)
