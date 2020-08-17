@@ -166,10 +166,11 @@ def sample_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
         
-    while np.sum(process_status)>0 or (time.time()-start_time)<probing_time:
-        if (time.time()-start_time) > probing_time:
-            for i in range(num_workers.value):
-                process_status[i] = 0
+    time.sleep(probing_time)
+        
+    while np.sum(process_status)>0:
+        for i in range(num_workers.value):
+            process_status[i] = 0
             
         time.sleep(0.01)
     
@@ -189,7 +190,7 @@ def sample_transfer(params):
     if rc < 128:
         rc = 128
     
-    score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = thrpt / np.log2(rc) 
     if timeout_count.value > 0:
         score_value = score_value / (timeout_count.value + 1)
          
