@@ -166,7 +166,7 @@ def sample_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
         
-    while np.sum(process_status)>0:
+    while np.sum(process_status)>0 or (time.time()-start_time)<probing_time:
         if (time.time()-start_time) > probing_time:
             for i in range(num_workers.value):
                 process_status[i] = 0
