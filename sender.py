@@ -157,7 +157,7 @@ def sample_transfer(params):
     if sample_phase_number == 1:
         chunk_size.value = get_buffer_size(params[1])
         
-    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+    log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
     before_sc, before_rc = get_retransmitted_packet_count()
     if len(file_names) < num_workers.value:
@@ -208,7 +208,7 @@ def normal_transfer(params):
     if sample_phase_number == 1:
         chunk_size.value = get_buffer_size(params[1])
         
-    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.va]))
     
     files_left = len(transfer_status) - np.sum(transfer_status)
     if files_left < num_workers.value:
