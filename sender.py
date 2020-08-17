@@ -38,6 +38,8 @@ else:
 emulab_test = False
 if configurations["emulab_test"] is not None:
     emulab_test = configurations["emulab_test"]
+else:
+    configurations["emulab_test"] = False
     
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]

@@ -9,6 +9,12 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
         Integer(1, configurations["chunk_limit"])
     ]
     
+    if configurations["emulab_test"]:
+        search_space  = [
+            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(10, 11)
+        ]
+        
     experiments = gp_minimize(
         func=black_box_function,
         dimensions=search_space,
