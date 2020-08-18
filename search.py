@@ -3,7 +3,7 @@ from skopt import gp_minimize, dummy_minimize
 # from bayes_opt import BayesianOptimization
 
 
-def initial_probe(configurations, black_box_function, logger, verbose=True):    
+def initial_probe(configurations, black_box_function, logger, verbose=True):  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -35,7 +35,10 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
     return experiments.x
 
 
-def repetitive_probe(configurations, black_box_function, logger, verbose=True):    
+def repetitive_probe(configurations, black_box_function, logger, verbose=True):  
+    if configurations["thread"]["min"] >= configurations["thread"]["max"]: 
+        return [configurations["thread"]["min"]]
+          
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
     ]

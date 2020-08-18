@@ -145,7 +145,9 @@ def worker(indx):
                 
                 own_addr = sock.getsockname()
                 addr = str(own_addr[0]) + ":" + str(own_addr[1])
-                print(tcp_stats(addr))
+                sc, rc = tcp_stats(addr)
+                segments_sent.value += sc
+                segments_retransmitted.value += rc
                 process_status[indx] = 0
                 sock.close()
             
