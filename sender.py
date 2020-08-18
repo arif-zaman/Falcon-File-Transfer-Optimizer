@@ -47,6 +47,8 @@ file_names = os.listdir(root) * configurations["multiplier"]
 probe_again = False
 sample_phase_number = 0
 
+segments_sent = mp.Value("i", 0)
+segments_retransmitted = mp.Value("i", 0)
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 timeout_count = mp.Value("i", 0)
@@ -57,6 +59,29 @@ transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+
+
+def tcp_stats(addr):
+    sent, retm = 0, 0
+    
+    try:
+        data = os.popen("ss -ti").read().split("\n")
+
+        for i in range(1,len(data)):
+            if addr in data[i-1]:
+                parse_data = data[i].split(" ")
+                for entry in parse_data:
+                    if "data_segs_out" in entry:
+                        sent = int(entry.split(":")[-1])
+                        
+                    if "retrans" in entry:
+                        retm = int(entry.split("/")[-1])
+                
+                break
+    except:
+        pass
+    
+    return sent, retm
 
 
 def worker(indx):
@@ -118,10 +143,16 @@ def worker(indx):
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
                 
+                own_addr = sock.getsockname()
+                addr = str(own_addr[0]) + ":" + str(own_addr[1])
+                print(tcp_stats(addr))
                 process_status[indx] = 0
                 sock.close()
             
             except socket.timeout as e:
+                if sample_phase.value == 1:
+                    process_status[indx] = 0
+                    
                 timeout_count.value = timeout_count.value + 1
                 log.error("{0}, {1}".format(indx, str(e)))
                 
@@ -142,36 +173,6 @@ def get_retransmitted_packet_count():
         return int(data[3]), int(data[7])
     except:
         return -1, -1
-    
-
-def tcp_stats():
-    addr = str(HOST) + ":" + str(PORT)
-    sent, retm = 0, 0
-    
-    try:
-        data = os.popen("ss -ti").read().split("\n")
-    except:
-        return -1, -1
-    
-    for i in range(1,len(data)):
-        if addr in data[i-1]:
-            parse_data = data[i].split(" ")
-            for entry in parse_data:
-                if "data_segs_out" in entry:
-                    try:
-                        value = int(entry.split(":")[-1])
-                        sent += value
-                    except:
-                        pass
-                    
-                if "retrans" in entry:
-                    try:
-                        value = int(entry.split("/")[-1])
-                        retm += value
-                    except:
-                        pass
-    
-    return sent, retm
 
 
 def sample_transfer(params):
@@ -189,22 +190,23 @@ def sample_transfer(params):
         
     log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
-    before_sc, before_rc = tcp_stats()
+    before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     if len(file_names) < num_workers.value:
         num_workers.value = len(file_names)
     
     for i in range(num_workers.value):
         process_status[i] = 1
         
-    time.sleep(probing_time)
+    # time.sleep(probing_time)
         
     while np.sum(process_status)>0:
-        for i in range(num_workers.value):
-            process_status[i] = 0
+        if (time.time() - start_time) > 2*probing_time:
+            for i in range(num_workers.value):
+                process_status[i] = 0
             
         time.sleep(0.01)
     
-    after_sc, after_rc = tcp_stats()
+    after_sc, after_rc = segments_sent.value, segments_retransmitted.value
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
     score_after = np.sum(file_offsets)
@@ -212,6 +214,7 @@ def sample_transfer(params):
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1024*1024)
     
+    rc = int(rc * (timeout_count.value/num_workers.value))
     lr, C = 0, 25
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
@@ -219,20 +222,9 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, Packet Retransmitted: {2}".format(
         np.round(thrpt), np.round(lr, 4), rc))
     
-    if rc < 128:
-        rc = 128
-    
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     # score_value = score_value * (
     #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
-    
-    # if timeout_count.value > 0:
-    #     score_value = score_value / (timeout_count.value + 1)
-         
-    # 2 * np.log10(thrpt) - np.log10(rc)
-    # thrpt / np.log2(rc) 
-    # thrpt * (1 - C * ((1/(1-lr))-1)) 
-    # thrpt * (1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     
     return np.round(score_value * (-1), 4)
 
@@ -292,14 +284,14 @@ def run_transfer():
     
     
 def report_retransmission_count(start_time):
-    previous_sc, previous_rc = tcp_stats()
+    previous_sc, previous_rc = get_retransmitted_packet_count()
     previous_time = 0
     
     time.sleep(1)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
-        after_sc, after_rc = tcp_stats()
+        after_sc, after_rc = get_retransmitted_packet_count()
         curr_rc = after_rc - previous_rc
         previous_time, previous_sc, previous_rc = time_sec, after_sc, after_rc
         log.info("Retransmission Count @{0}s: {1}".format(time_sec, curr_rc))
