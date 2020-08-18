@@ -216,7 +216,7 @@ def sample_transfer(params):
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1024*1024)
     
-    rc = int(rc * (timeout_count.value/num_workers.value))
+    rc = int(rc * (1+(timeout_count.value/num_workers.value)))
     lr, C = 0, 25
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
