@@ -145,7 +145,7 @@ def get_retransmitted_packet_count():
     
 
 def tcp_stats():
-    addr = HOST + ":" + PORT
+    addr = str(HOST) + ":" + str(PORT)
     sent, retm = 0, 0
     
     try:
