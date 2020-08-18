@@ -181,14 +181,16 @@ def sample_transfer(params):
     score = score_after - score_before
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1024*1024)
-    log.info("Throughput: {0}, Packet Retransmitted: {2}".format(np.round(thrpt), sc, rc))
-        
+    
     lr, C = 0, 10
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
         
     if rc < 128:
         rc = 128
+        
+    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, Packet Retransmitted: {2}".format(
+        np.round(thrpt), lr, rc))
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     score_value = score_value * (
