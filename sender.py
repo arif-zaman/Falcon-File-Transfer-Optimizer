@@ -190,9 +190,12 @@ def sample_transfer(params):
     if rc < 128:
         rc = 128
     
-    score_value = thrpt / np.log2(rc) 
-    if timeout_count.value > 0:
-        score_value = score_value / (timeout_count.value + 1)
+    score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = score_value * (
+        1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
+    
+    # if timeout_count.value > 0:
+    #     score_value = score_value / (timeout_count.value + 1)
          
     # 2 * np.log10(thrpt) - np.log10(rc)
     # thrpt / np.log2(rc) 
@@ -317,7 +320,7 @@ def report_throughput(start_time):
                     probe_again = True
                     configurations["thread"] = {
                         "min": num_workers.value,
-                        "max": int(num_workers.value*2),
+                        "max": min (int(num_workers.value*2), configurations["thread_limit"]),
                         "iteration": 5,
                         "random_probe": 2
                     }
