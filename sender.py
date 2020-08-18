@@ -144,6 +144,36 @@ def get_retransmitted_packet_count():
         return -1, -1
     
 
+def tcp_stats():
+    addr = HOST + ":" + PORT
+    sent, retm = 0, 0
+    
+    try:
+        data = os.popen("ss -ti").read().split("\n")
+    except:
+        return -1, -1
+    
+    for i in range(1,len(data)):
+        if addr in data[i-1]:
+            parse_data = data[i].split(" ")
+            for entry in parse_data:
+                if "data_segs_out" in entry:
+                    try:
+                        value = int(entry.split(":")[-1])
+                        sent += value
+                    except:
+                        pass
+                    
+                if "retrans" in entry:
+                    try:
+                        value = int(entry.split("/")[-1])
+                        retm += value
+                    except:
+                        pass
+    
+    return sent, retm
+
+
 def sample_transfer(params):
     global sample_phase_number
     if kill_transfer.value == 1:
@@ -159,7 +189,7 @@ def sample_transfer(params):
         
     log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
-    before_sc, before_rc = get_retransmitted_packet_count()
+    before_sc, before_rc = tcp_stats()
     if len(file_names) < num_workers.value:
         num_workers.value = len(file_names)
     
@@ -174,7 +204,7 @@ def sample_transfer(params):
             
         time.sleep(0.01)
     
-    after_sc, after_rc = get_retransmitted_packet_count()
+    after_sc, after_rc = tcp_stats()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
     score_after = np.sum(file_offsets)
@@ -182,7 +212,7 @@ def sample_transfer(params):
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1024*1024)
     
-    lr, C = 0, 10
+    lr, C = 0, 25
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
         
@@ -193,8 +223,8 @@ def sample_transfer(params):
         rc = 128
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
-    score_value = score_value * (
-        1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
+    # score_value = score_value * (
+    #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     
     # if timeout_count.value > 0:
     #     score_value = score_value / (timeout_count.value + 1)
@@ -223,7 +253,14 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while (np.sum(process_status) > 0) and (kill_transfer.value == 0) and (not probe_again):
+    while (np.sum(process_status) > 0) and (kill_transfer.value == 0):
+        if probe_again:
+            files_left = len(transfer_status) - np.sum(transfer_status)
+            if files_left < configurations["thread"]["min"]:
+                log.info("No much transfer is left. Further probing request ignored!")
+            else:
+                break
+            
         time.sleep(0.01)
 
     if probe_again and (len(transfer_status) > np.sum(transfer_status)):
@@ -255,14 +292,14 @@ def run_transfer():
     
     
 def report_retransmission_count(start_time):
-    previous_sc, previous_rc = get_retransmitted_packet_count()
+    previous_sc, previous_rc = tcp_stats()
     previous_time = 0
     
     time.sleep(1)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time)
-        after_sc, after_rc = get_retransmitted_packet_count()
+        after_sc, after_rc = tcp_stats()
         curr_rc = after_rc - previous_rc
         previous_time, previous_sc, previous_rc = time_sec, after_sc, after_rc
         log.info("Retransmission Count @{0}s: {1}".format(time_sec, curr_rc))
