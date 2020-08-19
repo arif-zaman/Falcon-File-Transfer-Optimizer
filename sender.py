@@ -217,7 +217,7 @@ def sample_transfer(params):
     thrpt = (score * 8) / (duration*1024*1024)
     
     rc = int(rc * (1+(timeout_count.value/num_workers.value)))
-    lr, C = 0, 25
+    lr, C = 0, 10
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
         
@@ -338,22 +338,12 @@ def report_throughput(start_time):
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
                 upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
                 
-                if last_n_sec_thrpt < lower_limit:
+                if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
                     configurations["thread"] = {
                         "min": int(num_workers.value/2),
-                        "max": num_workers.value,
-                        "iteration": 5,
-                        "random_probe": 2
-                    }
-
-                if last_n_sec_thrpt > upper_limit:
-                    log.info("It Seems We Need to Probe Again!")
-                    probe_again = True
-                    configurations["thread"] = {
-                        "min": num_workers.value,
-                        "max": min (int(num_workers.value*2), configurations["thread_limit"]),
+                        "max": min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"]),
                         "iteration": 5,
                         "random_probe": 2
                     }
