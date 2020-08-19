@@ -7,7 +7,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import initial_probe, repetitive_probe, random_opt, probe_test_config
+from search import initial_probe, repetitive_probe, random_opt, brute_force
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -253,7 +253,7 @@ def normal_transfer(params):
         if probe_again:
             files_left = len(transfer_status) - np.sum(transfer_status)
             if files_left < configurations["thread"]["min"]:
-                log.info("No much transfer is left. Further probing request ignored!")
+                log.info("Not much transfer is left. Further probing request ignored!")
             else:
                 break
             
@@ -270,6 +270,10 @@ def run_transfer():
     if configurations["method"].lower() == "random":
         sample_phase.value = 1
         params = random_opt(configurations, sample_transfer, log)
+    
+    elif configurations["method"].lower() == "brute":
+        sample_phase.value = 1
+        params = brute_force(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]

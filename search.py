@@ -1,5 +1,6 @@
 from skopt.space import Integer
 from skopt import gp_minimize, dummy_minimize
+import numpy as np
 # from bayes_opt import BayesianOptimization
 
 
@@ -82,7 +83,29 @@ def random_opt(configurations, black_box_function, logger, verbose=True):
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
     return experiments.x
+
+
+def brute_force(configurations, black_box_function, logger, verbose=True):
+    score = []
+    max_thread = configurations["thread"]["max"]
+    max_chunk_size = configurations["chunk_limit"]
     
+    if not configurations["emulab_test"]:
+        for i in range(max_thread):
+            for j in range(max_chunk_size):
+                params = [i+1, j+1]
+                score.append(black_box_function(params))
+    
+    else:
+        max_chunk_size = 1
+        for i in range(max_thread):
+            params = [i+1, 11]
+            score.append(black_box_function(params))
+    
+    max_score_indx= np.argmax(score)
+    params = [max_score_indx+1, 11]
+    logger.info("Best parameters: {0} and score: {1}".format(params, np.max(score)))
+    return params
     
 def probe_test_config(black_box_function, params):
-    black_box_function(params, sample_transfer=False)
+    black_box_function(params)
