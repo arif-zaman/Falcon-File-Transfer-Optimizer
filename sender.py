@@ -269,10 +269,12 @@ def run_transfer():
     
     if configurations["method"].lower() == "random":
         sample_phase.value = 1
+        sample_phase_number += 1
         params = random_opt(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "brute":
         sample_phase.value = 1
+        sample_phase_number += 1
         params = brute_force(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
@@ -336,7 +338,7 @@ def report_throughput(start_time):
                 log.info("Alas! Transfer is Stuck. Killing it!")
                 kill_transfer.value = 1
                 
-            if configurations["multiple_probe"] and (time_sec - sampling_ended > 20):
+            if configurations["multiple_probe"] and configurations["method"].lower() == "bayes" and (time_sec - sampling_ended > 20):
                 n = 10
                 last_n_sec_thrpt = np.mean(throughput_logs[-n:])
                 max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)

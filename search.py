@@ -107,5 +107,6 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     logger.info("Best parameters: {0} and score: {1}".format(params, np.max(score)))
     return params
     
+    
 def probe_test_config(black_box_function, params):
     black_box_function(params)
