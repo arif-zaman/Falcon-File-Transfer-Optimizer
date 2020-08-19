@@ -102,7 +102,7 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
             params = [i+1, 11]
             score.append(black_box_function(params))
     
-    max_score_indx= np.argmax(score)
+    max_score_indx= np.argmin(score)
     params = [max_score_indx+1, 11]
     logger.info("Best parameters: {0} and score: {1}".format(params, np.max(score)))
     return params
