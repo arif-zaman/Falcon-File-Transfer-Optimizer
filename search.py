@@ -13,7 +13,7 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
     if configurations["emulab_test"]:
         search_space  = [
             Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-            Integer(10, 11)
+            Integer(9, 10)
         ]
         
     experiments = gp_minimize(
@@ -99,11 +99,11 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     else:
         max_chunk_size = 1
         for i in range(max_thread):
-            params = [i+1, 11]
+            params = [i+1, 10]
             score.append(black_box_function(params))
     
     max_score_indx= np.argmin(score)
-    params = [max_score_indx+1, 11]
+    params = [max_score_indx+1, 10]
     logger.info("Best parameters: {0} and score: {1}".format(params, np.max(score)))
     return params
     

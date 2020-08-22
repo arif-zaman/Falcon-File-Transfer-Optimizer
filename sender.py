@@ -158,7 +158,7 @@ def worker(indx):
                     process_status[indx] = 0
                     
                 timeout_count.value = timeout_count.value + 1
-                log.error("{0}, {1}".format(indx, str(e)))
+                # log.error("{0}, {1}".format(indx, str(e)))
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
@@ -374,9 +374,6 @@ if __name__ == '__main__':
     start = time.time()
     throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
     throughput_thread.start()
-    
-    if configurations["loglevel"] == "debug":
-        retransmission_thread = Thread(target=report_retransmission_count, args=(start,), daemon=True)
         
     run_transfer()
     end = time.time()
