@@ -99,7 +99,10 @@ def worker(indx):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    max_speed = (10 * 1024 * 1024)/8
+                    target = 10
+                    max_speed = (target * 1024 * 1024)/8
+                    second_target = int(max_speed/10)
+                    second_data_count = 0
                     data_count = 0
                     time_next = time.time() + 1
 
@@ -122,6 +125,11 @@ def worker(indx):
                             file_offsets[i] = offset
                             
                             if emulab_test:
+                                second_data_count == sent 
+                                if second_data_count >= second_target:
+                                    second_data_count = 0
+                                    time.sleep(0.095)
+                                    
                                 data_count += sent
                                 if data_count >= max_speed:
                                     data_count = 0
@@ -352,12 +360,15 @@ def report_throughput(start_time):
                 if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
-                    configurations["thread"] = {
-                        "min": int(num_workers.value/2),
-                        "max": min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"]),
-                        "iteration": 5,
-                        "random_probe": 2
-                    }
+                    configurations["thread"]["min"] =max(int(num_workers.value/2), 1)
+                    configurations["thread"]["max"] =min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"])
+                    
+                    if configurations["thread"]["max"] == configurations["thread"]["min"]:
+                        probe_again = False
+                    
+                    if configurations["thread"]["max"] > configurations["thread"]["min"]:  
+                        configurations["thread"]["iteration"] = min(configurations["thread"]["max"] - configurations["thread"]["min"], 8)
+                        configurations["thread"]["random_probe"] = max(1, int(configurations["thread"]["iteration"]/2))
         else:
             max_mean_thrpt = 0
             min_mean_thrpt = 100000
