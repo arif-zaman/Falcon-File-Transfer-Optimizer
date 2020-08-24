@@ -387,7 +387,7 @@ if __name__ == '__main__':
     
     start = time.time()
     throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
-    #throughput_thread.start()
+    throughput_thread.start()
         
     run_transfer()
     end = time.time()
