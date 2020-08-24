@@ -4,6 +4,7 @@ import numpy as np
 import time
 import warnings
 import logging as log
+from sendfile import sendfile
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
@@ -114,6 +115,7 @@ def worker(indx):
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
                         while process_status[indx] == 1:
+                            # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
                             sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
                             # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
@@ -279,6 +281,7 @@ def run_transfer():
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
+        chunk_size.value = get_buffer_size(params[1])
         
     else:
         sample_phase.value = 1
