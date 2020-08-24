@@ -98,13 +98,14 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     
     else:
         max_chunk_size = 1
+        j = 6
         for i in range(max_thread):
-            params = [i+1, 10]
+            params = [i+1, j+1]
             score.append(black_box_function(params))
     
-    max_score_indx= np.argmin(score)
-    params = [max_score_indx+1, 10]
-    logger.info("Best parameters: {0} and score: {1}".format(params, np.max(score)))
+    min_score_indx= int(np.argmin(score)/max_chunk_size)
+    params = [min_score_indx+1, j+1]
+    logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
     return params
     
     
