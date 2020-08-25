@@ -125,10 +125,10 @@ def worker(indx):
                             file_offsets[i] = offset
                             
                             if emulab_test:
-                                # second_data_count == sent 
-                                # if second_data_count >= second_target:
-                                #     second_data_count = 0
-                                #     time.sleep(0.095)
+                                second_data_count == sent 
+                                if second_data_count >= second_target:
+                                    second_data_count = 0
+                                    time.sleep(0.095)
                                     
                                 data_count += sent
                                 if data_count >= max_speed:
