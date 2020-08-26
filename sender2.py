@@ -120,8 +120,7 @@ def worker(indx):
                         timer100ms = time.time();
                        
                         while process_status[indx] == 1:
-                            if emulab_test:
-                                chunk_size.value = min(chunk_size.value, second_target-second_data_count)
+                            chunk_size.value = min(chunk_size.value, second_target-second_data_count)
                             data_to_send = bytearray(chunk_size.value )
                             sent = sock.send(data_to_send)
                             offset += sent
@@ -380,23 +379,21 @@ workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["t
 
 
 if __name__ == '__main__':
-    for p in workers:
-        p.daemon = True
-        p.start()
+    sock = socket.socket()
+    sock.settimeout(configurations["timeout"])
+    sock.connect((HOST, PORT))
+    data_to_send = bytearray(get_buffer_size(11))
     
-    start = time.time()
-    throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
-    throughput_thread.start()
+    while True:
+        start = time.time()
+        sent = sock.send(bytearray)
+        end = time.time
+        time_taken = np.round((end-start)*1000)
         
-    run_transfer()
-    end = time.time()
-            
-    time_sec = np.round(end-start, 3)
-    total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
-    thrpt = np.round((total*8*1024)/time_sec,2)
-    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
-    
-    for p in workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
+        if time_taken < 1000:
+            sleep_time = 1000 - time_taken
+            log.info("time spent: {0}ms, sleep time: {1}ms".format(time_taken, sleep_time))
+            time.sleep(sleep_time/1000)
+        else:
+            log.info("time spent: {0}ms. Exiting ...".format(time_taken))
+            break
