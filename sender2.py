@@ -386,8 +386,8 @@ if __name__ == '__main__':
     
     while True:
         start = time.time()
-        sent = sock.send(bytearray)
-        end = time.time
+        sent = sock.send(data_to_send)
+        end = time.time()
         time_taken = np.round((end-start)*1000)
         
         if time_taken < 1000:
