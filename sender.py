@@ -126,13 +126,14 @@ def worker(indx):
                             # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
                             file_offsets[i] = offset
-                            
+
                             if emulab_test:
                                 second_data_count += sent 
                                 if second_data_count >= second_target:
                                     second_data_count = 0
-                                    if time.time() > timer100ms + 0.2:
-                                        log.error("It took more than 100ms to transfer data, unexpected condition!!!")
+                                    current_time = time.time()
+                                    if current_time > timer100ms + 0.2:
+                                        log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+0.2))
                                         exit(-1)
                                     time.sleep(timer100ms + 0.2 - time.time())
                                     timer100ms = time.time();
