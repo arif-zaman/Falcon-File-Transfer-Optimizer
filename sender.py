@@ -100,8 +100,8 @@ def worker(indx):
                 
                 if emulab_test:
                     target = 10
-                    max_speed = (target * 1024 * 1024)/8
-                    second_target = int(max_speed/10)
+                    max_speed = (target * 1000 * 1000)/8
+                    second_target = int(max_speed/5)
                     second_data_count = 0
                     data_count = 0
                     time_next = time.time() + 1
@@ -131,10 +131,10 @@ def worker(indx):
                                 second_data_count += sent 
                                 if second_data_count >= second_target:
                                     second_data_count = 0
-                                    if time.time() > timer100ms + 0.1:
+                                    if time.time() > timer100ms + 0.2:
                                         log.error("It took more than 100ms to transfer data, unexpected condition!!!")
                                         exit(-1)
-                                    time.sleep(timer100ms + 0.1 - time.time())
+                                    time.sleep(timer100ms + 0.2 - time.time())
                                     timer100ms = time.time();
                                 data_count += sent
                                 
@@ -341,14 +341,14 @@ def report_throughput(start_time):
         time_sec = curr_time-start_time
         total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
         total_bytes = np.sum(file_offsets)
-        thrpt = np.round((total_bytes*8)/time_sec,3)
+        thrpt = (total_bytes*8)/time_sec
         
         curr_total = total_bytes - previous_total
         curr_time_sec = time_sec - previous_time
-        curr_thrpt = np.round((curr_total*8)/curr_time_sec, 2)
+        curr_thrpt = (curr_total*8)/curr_time_sec
         previous_time, previous_total = time_sec, total_bytes
         throughput_logs.append(curr_thrpt)
-        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt/(1000*1000), thrpt/(1000*1000)))
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, np.round(curr_thrpt/(1000*1000),2), np.round(thrpt/(1000*1000),2)))
 
         if sample_phase.value == 0:
             if sampling_ended == 0:
