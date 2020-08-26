@@ -100,8 +100,9 @@ def worker(indx):
                 
                 if emulab_test:
                     target = 10
+                    factor = 10
                     max_speed = (target * 1000 * 1000)/8
-                    second_target = int(max_speed/1)
+                    second_target = int(max_speed/factor)
                     second_data_count = 0
                     data_count = 0
                     time_next = time.time() + 1
@@ -136,10 +137,10 @@ def worker(indx):
                                     log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
                                     second_data_count = 0
                                     current_time = time.time()
-                                    if current_time > timer100ms + 1:
-                                        log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+1))
+                                    if current_time > timer100ms + (1/factor):
+                                        log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+(1/factor)))
                                         exit(-1)
-                                    time.sleep(timer100ms + 1 - time.time())
+                                    time.sleep(timer100ms + (1/factor) - time.time())
                                     timer100ms = time.time()
                                 # data_count += sent
                                 
