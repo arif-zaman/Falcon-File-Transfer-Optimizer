@@ -128,8 +128,9 @@ def worker(indx):
                             file_offsets[i] = offset
 
                             if emulab_test:
-                                second_data_count += sent 
+                                second_data_count += sent
                                 if second_data_count >= second_target:
+                                    log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
                                     second_data_count = 0
                                     current_time = time.time()
                                     if current_time > timer100ms + 0.2:
