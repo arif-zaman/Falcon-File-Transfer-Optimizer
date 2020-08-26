@@ -382,18 +382,18 @@ if __name__ == '__main__':
     sock = socket.socket()
     sock.settimeout(configurations["timeout"])
     sock.connect((HOST, PORT))
-    data_to_send = bytearray(get_buffer_size(11))
     
     while True:
         start = time.time()
+        data_to_send = bytearray(get_buffer_size(11))
         sent = sock.send(data_to_send)
         end = time.time()
         time_taken = np.round((end-start)*1000)
         
         if time_taken < 1000:
             sleep_time = 1000 - time_taken
-            log.info("time spent: {0}ms, sleep time: {1}ms".format(time_taken, sleep_time))
+            log.info("sent data: {0}, time spent: {1}ms, sleep time: {2}ms".format(sent, time_taken, sleep_time))
             time.sleep(sleep_time/1000)
         else:
-            log.info("time spent: {0}ms. Exiting ...".format(time_taken))
+            log.info("sent data: {0}, time spent: {1}ms. Exiting ...".format(sent, time_taken))
             break
