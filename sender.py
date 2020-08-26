@@ -121,10 +121,10 @@ def worker(indx):
                        
                         while process_status[indx] == 1:
                             if emulab_test:
-                                chunk_size.value = min(chunk_size.value, second_target-second_data_count)
+                                buffer_size = min(chunk_size.value, second_target-second_data_count)
                             # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
                             #sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
-                            data_to_send = bytearray(chunk_size.value )
+                            data_to_send = bytearray(buffer_size)
                             sent = sock.send(data_to_send)
                             # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
@@ -140,18 +140,18 @@ def worker(indx):
                                         log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+1))
                                         exit(-1)
                                     time.sleep(timer100ms + 1 - time.time())
-                                    timer100ms = time.time();
-                                data_count += sent
+                                    timer100ms = time.time()
+                                # data_count += sent
                                 
-                                if data_count >= max_speed:
-                                    if data_count > max_speed:
-                                        log.error("Data count is {0} is more than maximum data size {1}".format(data_count, max_speed))
-                                    data_count = 0
-                                    sleep_for = time_next - time.time()
-                                    if sleep_for > 0:
-                                        time.sleep(sleep_for)
+                                # if data_count >= max_speed:
+                                #     if data_count > max_speed:
+                                #         log.error("Data count is {0} is more than maximum data size {1}".format(data_count, max_speed))
+                                #     data_count = 0
+                                #     sleep_for = time_next - time.time()
+                                #     if sleep_for > 0:
+                                #         time.sleep(sleep_for)
                                     
-                                    time_next = time.time() + 1
+                                #     time_next = time.time() + 1
                             
                             duration = time.time() - start
                             if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
