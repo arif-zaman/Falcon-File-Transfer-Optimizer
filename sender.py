@@ -118,11 +118,14 @@ def worker(indx):
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
                         timer100ms = time.time();
+                       
                         while process_status[indx] == 1:
                             if emulab_test:
                                 chunk_size.value = min(chunk_size.value, second_target-second_data_count)
                             # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
-                            sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                            #sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                            data_to_send = bytearray(chunk_size.value )
+                            sent = sock.send(data_to_send)
                             # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
                             file_offsets[i] = offset
