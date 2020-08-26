@@ -234,7 +234,7 @@ def sample_transfer(params):
     score_after = np.sum(file_offsets)
     score = score_after - score_before
     duration = time.time() - start_time         
-    thrpt = (score * 8) / (duration*1024*1024)
+    thrpt = (score * 8) / (duration*1000*1000)
     
     rc = int(rc * (1+(timeout_count.value/num_workers.value)))
     lr, C = 0, 10
@@ -338,16 +338,17 @@ def report_throughput(start_time):
     time.sleep(1)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
-        time_sec = np.round(curr_time-start_time)
+        time_sec = curr_time-start_time
         total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
-        thrpt = np.round((total*8*1024)/time_sec,2)
+        total_bytes = np.sum(file_offsets)
+        thrpt = np.round((total_bytes*8)/time_sec,3)
         
-        curr_total = total - previous_total
+        curr_total = total_bytes - previous_total
         curr_time_sec = time_sec - previous_time
-        curr_thrpt = np.round((curr_total*8*1024)/curr_time_sec)
-        previous_time, previous_total = time_sec, total
+        curr_thrpt = np.round((curr_total*8)/curr_time_sec, 2)
+        previous_time, previous_total = time_sec, total_bytes
         throughput_logs.append(curr_thrpt)
-        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt/(1000*1000), thrpt/(1000*1000)))
 
         if sample_phase.value == 0:
             if sampling_ended == 0:
