@@ -99,7 +99,7 @@ def worker(indx):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target = 10
+                    target = 16
                     max_speed = (target * 1000 * 1000)/8
                     second_target = int(max_speed/1)
                     second_data_count = 0
@@ -122,11 +122,8 @@ def worker(indx):
                         while process_status[indx] == 1:
                             if emulab_test:
                                 chunk_size.value = min(chunk_size.value, second_target-second_data_count)
-                            # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
-                            #sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
                             data_to_send = bytearray(chunk_size.value )
                             sent = sock.send(data_to_send)
-                            # data = os.preadv(file,chunk_size.value,offset)
                             offset += sent
                             file_offsets[i] = offset
 
@@ -137,9 +134,9 @@ def worker(indx):
                                     second_data_count = 0
                                     current_time = time.time()
                                     if current_time > timer100ms + 1:
-                                        log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+1))
+                                        log.error("It took more than 1000ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+1))
                                         process_status[indx] = 0
-										kill_transfer.value = 1
+                                        kill_transfer.value = 1
                                     time.sleep(timer100ms + 1 - time.time())
                                     timer100ms = time.time();
                                 data_count += sent
