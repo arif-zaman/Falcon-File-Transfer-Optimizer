@@ -117,7 +117,10 @@ def worker(indx):
                         offset = file_offsets[i]
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
+                        timer100ms = time.time();
                         while process_status[indx] == 1:
+                            if emulab_test:
+                                chunk_size.value = min(chunk_size.value, second_target-second_data_count)
                             # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
                             sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
                             # data = os.preadv(file,chunk_size.value,offset)
@@ -125,15 +128,20 @@ def worker(indx):
                             file_offsets[i] = offset
                             
                             if emulab_test:
-                                second_data_count == sent 
+                                second_data_count += sent 
                                 if second_data_count >= second_target:
                                     second_data_count = 0
-                                    time.sleep(0.095)
-                                    
+                                    if time.time() > timer100ms + 0.1:
+                                        log.error("It took more than 100ms to transfer data, unexpected condition!!!")
+                                        exit(-1)
+                                    time.sleep(timer100ms + 0.1 - time.time())
+                                    timer100ms = time.time();
                                 data_count += sent
+                                
                                 if data_count >= max_speed:
+                                    if data_count > max_speed:
+                                        log.error("Data count is {0} is more than maximum data size {1}".format(data_count, max_speed))
                                     data_count = 0
-                                    
                                     sleep_for = time_next - time.time()
                                     if sleep_for > 0:
                                         time.sleep(sleep_for)
