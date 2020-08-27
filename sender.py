@@ -91,12 +91,16 @@ def worker(indx):
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
+            sc, rc = 0, 0
             start = time.time()
             
             try:
                 sock = socket.socket()
                 sock.settimeout(configurations["timeout"])
                 sock.connect((HOST, PORT))
+                
+                own_addr = sock.getsockname()
+                addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
                     target = 10
@@ -121,11 +125,17 @@ def worker(indx):
                         while process_status[indx] == 1:
                             if emulab_test:
                                 buffer_size = min(chunk_size.value, second_target-second_data_count)
+                                
                             # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
                             #sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
                             data_to_send = bytearray(buffer_size)
                             sent = sock.send(data_to_send)
                             # data = os.preadv(file,chunk_size.value,offset)
+                            
+                            sc, rc = tcp_stats(addr)
+                            segments_sent.value += sc
+                            segments_retransmitted.value += rc
+                            
                             offset += sent
                             file_offsets[i] = offset
 
@@ -155,35 +165,23 @@ def worker(indx):
                                 transfer_status[i] = 1
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
-                
-                own_addr = sock.getsockname()
-                addr = str(own_addr[0]) + ":" + str(own_addr[1])
-                sc, rc = tcp_stats(addr)
-                segments_sent.value += sc
-                segments_retransmitted.value += rc
-                lr = rc/sc if sc>0 else 0
-                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
+                            
                 process_status[indx] = 0
                 sock.close()
             
             except socket.timeout as e:
-                if sample_phase.value == 1:
+                duration = time.time() - start
+                if (sample_phase.value == 1 and (duration > probing_time)):
                     process_status[indx] = 0
-                    
-                own_addr = sock.getsockname()
-                addr = str(own_addr[0]) + ":" + str(own_addr[1])
-                sc, rc = tcp_stats(addr)
-                segments_sent.value += sc
-                segments_retransmitted.value += rc
-                lr = rc/sc if sc>0 else 0
-                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
-                process_status[indx] = 0
-                sock.close()
                 
                 # log.error("{0}, {1}".format(indx, str(e)))
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
+
+            if process_status[indx] == 0:
+                lr = rc/sc if sc>0 else 0
+                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
     
     process_status[indx] == 0
     return True 
@@ -226,7 +224,7 @@ def sample_transfer(params):
     # time.sleep(probing_time)
         
     while np.sum(process_status)>0:
-        if (time.time() - start_time) > 2*probing_time:
+        if (time.time() - start_time) > probing_time+2:
             for i in range(num_workers.value):
                 process_status[i] = 0
             
@@ -240,7 +238,6 @@ def sample_transfer(params):
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1000*1000)
     
-    rc = int(rc * (1+(timeout_count.value/num_workers.value)))
     lr, C = 0, 10
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
