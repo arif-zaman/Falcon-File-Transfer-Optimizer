@@ -4,7 +4,7 @@ import numpy as np
 import time
 import warnings
 import logging as log
-from sendfile import sendfile
+# from sendfile import sendfile
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
@@ -120,22 +120,18 @@ def worker(indx):
                         offset = file_offsets[i]
 
                         log.debug("starting {0}, {1}, {2}".format(indx, i, filename))
-                        timer100ms = time.time();
+                        timer100ms = time.time()
                        
                         while process_status[indx] == 1:
                             if emulab_test:
                                 buffer_size = min(chunk_size.value, second_target-second_data_count)
+                                data_to_send = bytearray(buffer_size)
+                                sent = sock.send(data_to_send)
+                            else:
+                                # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
+                                sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                                # data = os.preadv(file,chunk_size.value,offset)
                                 
-                            # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
-                            #sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
-                            data_to_send = bytearray(buffer_size)
-                            sent = sock.send(data_to_send)
-                            # data = os.preadv(file,chunk_size.value,offset)
-                            
-                            sc, rc = tcp_stats(addr)
-                            segments_sent.value += sc
-                            segments_retransmitted.value += rc
-                            
                             offset += sent
                             file_offsets[i] = offset
 
@@ -144,10 +140,6 @@ def worker(indx):
                                 if second_data_count >= second_target:
                                     #log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
                                     second_data_count = 0
-                                    # current_time = time.time()
-                                    # if current_time > timer100ms + (1/factor):
-                                    #     log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+(1/factor)))
-                                    #     exit(-1)
                                     while timer100ms + (1/factor) > time.time():
                                         pass
                                     
@@ -165,7 +157,10 @@ def worker(indx):
                                 transfer_status[i] = 1
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
-                            
+                
+                sc, rc = tcp_stats(addr)
+                segments_sent.value += sc
+                segments_retransmitted.value += rc
                 process_status[indx] = 0
                 sock.close()
             
@@ -174,7 +169,7 @@ def worker(indx):
                 if (sample_phase.value == 1 and (duration > probing_time)):
                     process_status[indx] = 0
                 
-                # log.error("{0}, {1}".format(indx, str(e)))
+                log.error("{0}, {1}".format(indx, str(e)))
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
@@ -312,21 +307,6 @@ def run_transfer():
     if kill_transfer.value == 0:
         normal_transfer(params)
     
-    
-def report_retransmission_count(start_time):
-    previous_sc, previous_rc = get_retransmitted_packet_count()
-    previous_time = 0
-    
-    time.sleep(1)
-    while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
-        curr_time = time.time()
-        time_sec = np.round(curr_time-start_time)
-        after_sc, after_rc = get_retransmitted_packet_count()
-        curr_rc = after_rc - previous_rc
-        previous_time, previous_sc, previous_rc = time_sec, after_sc, after_rc
-        log.info("Retransmission Count @{0}s: {1}".format(time_sec, curr_rc))
-        time.sleep(0.999)
-
 
 def report_throughput(start_time):
     global probe_again
