@@ -104,8 +104,6 @@ def worker(indx):
                     max_speed = (target * 1000 * 1000)/8
                     second_target = int(max_speed/factor)
                     second_data_count = 0
-                    data_count = 0
-                    time_next = time.time() + 1
 
                 for i in range(indx, len(file_names), num_workers.value):
                     duration = time.time() - start
@@ -134,25 +132,16 @@ def worker(indx):
                             if emulab_test:
                                 second_data_count += sent
                                 if second_data_count >= second_target:
-                                    log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
+                                    #log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
                                     second_data_count = 0
-                                    current_time = time.time()
-                                    if current_time > timer100ms + (1/factor):
-                                        log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+(1/factor)))
-                                        exit(-1)
-                                    time.sleep(timer100ms + (1/factor) - time.time())
-                                    timer100ms = time.time()
-                                # data_count += sent
-                                
-                                # if data_count >= max_speed:
-                                #     if data_count > max_speed:
-                                #         log.error("Data count is {0} is more than maximum data size {1}".format(data_count, max_speed))
-                                #     data_count = 0
-                                #     sleep_for = time_next - time.time()
-                                #     if sleep_for > 0:
-                                #         time.sleep(sleep_for)
+                                    # current_time = time.time()
+                                    # if current_time > timer100ms + (1/factor):
+                                    #     log.error("It took more than 200ms to transfer data, unexpected condition!!! cur_time:{0}, timer100ms: {1}".format(current_time, timer100ms+(1/factor)))
+                                    #     exit(-1)
+                                    while timer100ms + (1/factor) > time.time():
+                                        pass
                                     
-                                #     time_next = time.time() + 1
+                                    timer100ms = time.time()
                             
                             duration = time.time() - start
                             if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
@@ -181,7 +170,16 @@ def worker(indx):
                 if sample_phase.value == 1:
                     process_status[indx] = 0
                     
-                timeout_count.value = timeout_count.value + 1
+                own_addr = sock.getsockname()
+                addr = str(own_addr[0]) + ":" + str(own_addr[1])
+                sc, rc = tcp_stats(addr)
+                segments_sent.value += sc
+                segments_retransmitted.value += rc
+                lr = rc/sc if sc>0 else 0
+                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
+                process_status[indx] = 0
+                sock.close()
+                
                 # log.error("{0}, {1}".format(indx, str(e)))
                 
             except Exception as e:
@@ -344,17 +342,16 @@ def report_throughput(start_time):
     time.sleep(1)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         curr_time = time.time()
-        time_sec = curr_time-start_time
-        total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
+        time_sec = np.round(curr_time-start_time, 3)
         total_bytes = np.sum(file_offsets)
-        thrpt = (total_bytes*8)/time_sec
+        thrpt = np.round((total_bytes*8)/(time_sec*1000*1000), 2)
         
         curr_total = total_bytes - previous_total
-        curr_time_sec = time_sec - previous_time
-        curr_thrpt = (curr_total*8)/curr_time_sec
+        curr_time_sec = np.round(time_sec - previous_time, 3)
+        curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
         previous_time, previous_total = time_sec, total_bytes
         throughput_logs.append(curr_thrpt)
-        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, np.round(curr_thrpt/(1000*1000),2), np.round(thrpt/(1000*1000),2)))
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
 
         if sample_phase.value == 0:
             if sampling_ended == 0:
