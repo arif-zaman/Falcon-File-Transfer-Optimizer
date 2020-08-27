@@ -161,6 +161,8 @@ def worker(indx):
                 sc, rc = tcp_stats(addr)
                 segments_sent.value += sc
                 segments_retransmitted.value += rc
+                lr = rc/sc if sc>0 else 0
+                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
                 process_status[indx] = 0
                 sock.close()
             
@@ -173,10 +175,6 @@ def worker(indx):
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
-
-            if process_status[indx] == 0:
-                lr = rc/sc if sc>0 else 0
-                log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
     
     process_status[indx] == 0
     return True 
