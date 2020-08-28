@@ -13,7 +13,7 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
     if configurations["emulab_test"]:
         search_space  = [
             Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-            Integer(9, 10)
+            Integer(6, 7)
         ]
         
     experiments = gp_minimize(
