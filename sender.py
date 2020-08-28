@@ -229,7 +229,7 @@ def sample_transfer(params):
     duration = time.time() - start_time         
     thrpt = (score * 8) / (duration*1000*1000)
     
-    lr, C = 0, 10
+    lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
         
