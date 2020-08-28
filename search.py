@@ -19,7 +19,7 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
     experiments = gp_minimize(
         func=black_box_function,
         dimensions=search_space,
-        # acq_func="gp_hedge", # [LCB, EI, PI]
+        acq_func="EI", # [LCB, EI, PI]
         # acq_optimizer="lbfgs", # [sampling, lbfgs]
         n_calls=configurations["thread"]["iteration"],
         n_random_starts=configurations["thread"]["random_probe"],
@@ -28,7 +28,7 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
         y0=None,
         verbose=verbose,
         # callback=None,
-        # xi=0.01, # EI or PI
+        xi=0.01, # EI or PI
         # kappa=1.96, # LCB only
     )
     
