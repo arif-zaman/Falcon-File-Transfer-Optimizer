@@ -52,7 +52,6 @@ segments_sent = mp.Value("i", 0)
 segments_retransmitted = mp.Value("i", 0)
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
-timeout_count = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
 kill_transfer = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
@@ -96,7 +95,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(configurations["timeout"])
+                sock.settimeout(probing_time)
                 sock.connect((HOST, PORT))
                 
                 own_addr = sock.getsockname()
@@ -161,7 +160,7 @@ def worker(indx):
                 sc, rc = tcp_stats(addr)
                 segments_sent.value += sc
                 segments_retransmitted.value += rc
-                lr = rc/sc if sc>0 else 0
+                # lr = rc/sc if sc>0 else 0
                 # log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
                 process_status[indx] = 0
                 sock.close()
@@ -198,7 +197,6 @@ def sample_transfer(params):
         return 10 ** 10
         
     start_time = time.time()
-    timeout_count.value = 0
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
     
@@ -247,7 +245,6 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     global probe_again
-    timeout_count.value = 0
     num_workers.value = params[0]
     if sample_phase_number == 1:
         chunk_size.value = get_buffer_size(params[1])
