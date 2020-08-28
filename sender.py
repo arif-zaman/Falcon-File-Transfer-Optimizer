@@ -261,7 +261,7 @@ def normal_transfer(params):
     while (np.sum(process_status) > 0) and (kill_transfer.value == 0):
         if probe_again:
             files_left = len(transfer_status) - np.sum(transfer_status)
-            if files_left < configurations["thread"]["min"]:
+            if files_left <= np.sum(process_status):
                 log.info("Not much transfer is left. Further probing request ignored!")
             else:
                 break
