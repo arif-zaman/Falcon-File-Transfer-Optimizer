@@ -232,15 +232,16 @@ def sample_transfer(params):
     lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0.99
-        
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, Packet Retransmitted: {2}".format(
-        np.round(thrpt), np.round(lr, 4), rc))
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = np.round(score_value * (-1), 4)
+    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
+        np.round(thrpt), np.round(lr*100, 3), score_value))
+    
     # score_value = score_value * (
     #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     
-    return np.round(score_value * (-1), 4)
+    return score_value
 
 
 def normal_transfer(params):
@@ -339,7 +340,7 @@ def report_throughput(start_time):
                 kill_transfer.value = 1
                 
             if configurations["multiple_probe"] and configurations["method"].lower() == "bayes" and (time_sec - sampling_ended > 20):
-                n = 10
+                n = 5
                 last_n_sec_thrpt = np.mean(throughput_logs[-n:])
                 max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
                 min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
