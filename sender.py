@@ -90,7 +90,7 @@ def worker(indx):
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
-            log.info("Start - {0}".format(indx))
+            log.debug("Start - {0}".format(indx))
             sc, rc = 0, 0
             start = time.time()
             
@@ -176,7 +176,7 @@ def worker(indx):
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
             
-            log.info("End - {0}".format(indx))
+            log.debug("End - {0}".format(indx))
     
     process_status[indx] == 0
     return True 
