@@ -8,7 +8,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import initial_probe, repetitive_probe, random_opt, brute_force
+from search import initial_probe, repetitive_probe, random_opt, brute_force, random_brute_search
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -285,6 +285,11 @@ def run_transfer():
         sample_phase.value = 1
         sample_phase_number += 1
         params = brute_force(configurations, sample_transfer, log)
+    
+    elif configurations["method"].lower() == "random_brute":
+        sample_phase.value = 1
+        sample_phase_number += 1
+        params = random_brute_search(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]

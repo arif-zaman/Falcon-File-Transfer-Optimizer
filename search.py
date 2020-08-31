@@ -1,6 +1,7 @@
 from skopt.space import Integer
 from skopt import gp_minimize, dummy_minimize
 import numpy as np
+import time
 # from bayes_opt import BayesianOptimization
 
 
@@ -107,7 +108,42 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     params = [min_score_indx+1, j+1]
     logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
     return params
+
+
+def random_brute_search(configurations, black_box_function, logger, verbose=True):
+    time.sleep(0.1)
+    max_thread = configurations["thread"]["max"]
+    cc = max_thread
+    score = [1000000 for i in range(max_thread)]
+
+    while cc > 0:
+        params = [cc, 7]
+        score[cc-1] = black_box_function(params)
+        cc = int(cc/2)
     
     
+    min_scores= np.argsort(score)[:2]
+    min_cc, max_cc = np.min(min_scores)+1, np.max(min_scores)+1
+    search_range = max_cc - min_cc - 2
+
+    if search_range<=5:
+        cc = min_cc+1
+        while cc<max_cc:
+            params = [cc, 7]
+            score[cc-1] = black_box_function(params)
+            cc += 1
+    else:
+        cc_set = np.random.choice(range(min_cc+1,max_cc), 5, replace=False)
+        for cc in cc_set:
+            params = [cc, 7]
+            score[cc-1] = black_box_function(params)
+
+    
+    min_score_indx = np.argmin(score)
+    params = [min_score_indx+1, 7]
+    logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
+    return params
+
+
 def probe_test_config(black_box_function, params):
     black_box_function(params)
