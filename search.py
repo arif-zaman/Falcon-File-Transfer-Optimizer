@@ -1,11 +1,11 @@
 from skopt.space import Integer
-from skopt import gp_minimize, dummy_minimize
+from skopt import gp_minimize, dummy_minimize, gbrt_minimize
 import numpy as np
 import time
 # from bayes_opt import BayesianOptimization
 
 
-def initial_probe(configurations, black_box_function, logger, verbose=True):  
+def bayes_gp(configurations, black_box_function, logger, verbose=True):  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -37,6 +37,37 @@ def initial_probe(configurations, black_box_function, logger, verbose=True):
     return experiments.x
 
 
+def bayes_gbrt(configurations, black_box_function, logger, verbose=True):  
+    search_space  = [
+        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(1, configurations["chunk_limit"])
+    ]
+    
+    if configurations["emulab_test"]:
+        search_space  = [
+            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(6, 7)
+        ]
+        
+    experiments = gbrt_minimize(
+        func=black_box_function,
+        dimensions=search_space,
+        # acq_func="LCB", # [LCB, EI, PI]
+        n_calls=configurations["thread"]["iteration"],
+        n_random_starts=configurations["thread"]["random_probe"],
+        random_state=None,
+        x0=None,
+        y0=None,
+        verbose=verbose,
+        # callback=None,
+        # xi=0.01, # EI or PI
+        kappa=2.58, # LCB only
+    )
+    
+    logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
+    return experiments.x
+
+
 def repetitive_probe(configurations, black_box_function, logger, verbose=True):  
     if configurations["thread"]["min"] >= configurations["thread"]["max"]: 
         return [configurations["thread"]["min"]]
@@ -49,7 +80,6 @@ def repetitive_probe(configurations, black_box_function, logger, verbose=True):
         func=black_box_function,
         dimensions=search_space,
         # acq_func="EI", # [LCB, EI, PI]
-        # acq_optimizer="lbfgs", # [sampling, lbfgs]
         n_calls=configurations["thread"]["iteration"],
         n_random_starts=configurations["thread"]["random_probe"],
         random_state=None,

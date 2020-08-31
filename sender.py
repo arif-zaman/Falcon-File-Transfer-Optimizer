@@ -8,7 +8,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import initial_probe, repetitive_probe, random_opt, brute_force, random_brute_search
+from search import bayes_gp, bayes_gbrt, random_opt, brute_force, random_brute_search
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -279,20 +279,15 @@ def normal_transfer(params):
 def run_transfer():
     global probe_again, sample_phase_number
     probe_again = False
-    
+    sample_phase.value = 1
+
     if configurations["method"].lower() == "random":
-        sample_phase.value = 1
-        sample_phase_number += 1
         params = random_opt(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "brute":
-        sample_phase.value = 1
-        sample_phase_number += 1
         params = brute_force(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "random_brute":
-        sample_phase.value = 1
-        sample_phase_number += 1
         params = random_brute_search(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
@@ -300,12 +295,7 @@ def run_transfer():
         chunk_size.value = get_buffer_size(params[1])
         
     else:
-        sample_phase.value = 1
-        sample_phase_number += 1
-        if sample_phase_number == 1:
-            params = initial_probe(configurations, sample_transfer, log)
-        else:
-            params = repetitive_probe(configurations, sample_transfer, log)
+        params = bayes_gbrt(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     if kill_transfer.value == 0:
