@@ -343,11 +343,11 @@ def report_throughput(start_time):
                 n = 5
                 last_n_sec_thrpt = np.mean(throughput_logs[-n:])
                 max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
-                min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
+                # min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
                 lower_limit = max_mean_thrpt * configurations["probing_threshold"]
-                upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
+                # upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
                 
-                if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
+                if last_n_sec_thrpt < lower_limit: # or last_n_sec_thrpt > upper_limit:
                     log.info("It Seems We Need to Probe Again!")
                     probe_again = True
                     # configurations["thread"]["min"] =max(int(num_workers.value/2), 1)
@@ -361,7 +361,7 @@ def report_throughput(start_time):
                     #     configurations["thread"]["random_probe"] = max(1, int(configurations["thread"]["iteration"]/2))
         else:
             max_mean_thrpt = 0
-            min_mean_thrpt = 100000
+            # min_mean_thrpt = 100000
             sampling_ended = 0
                 
         time.sleep(0.998)
