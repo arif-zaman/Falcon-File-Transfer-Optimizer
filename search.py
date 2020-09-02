@@ -61,7 +61,7 @@ def gbrt(configurations, black_box_function, logger, verbose=True):
         verbose=verbose,
         # callback=None,
         # xi=0.01, # EI or PI
-        kappa=2.58, # LCB only
+        kappa=10, # LCB only
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))

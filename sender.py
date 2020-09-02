@@ -92,6 +92,7 @@ def worker(indx):
             log.debug("Start - {0}".format(indx))
             sc, rc = 0, 0
             start = time.time()
+            last_time_since_stats = start
             
             try:
                 sock = socket.socket()
@@ -144,13 +145,19 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            duration = time.time() - start
-                            if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
-                                if sent == 0:
-                                    transfer_status[i] = 1
-                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            if (time.time() - last_time_since_stats) >= (probing_time - 0.02):
+                                sc, rc = tcp_stats(addr)
+                                segments_sent.value += sc
+                                segments_retransmitted.value += rc
+                                last_time_since_stats = 0
+
+                            # duration = time.time() - start
+                            # if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
+                            #     if sent == 0:
+                            #         transfer_status[i] = 1
+                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                                break
+                            #     break
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -198,49 +205,40 @@ def sample_transfer(params):
     if kill_transfer.value == 1:
         return 10 ** 10
         
+    log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+    if len(file_names) < num_workers.value:
+        params[0] = len(file_names)
+        log.info("Effective Concurrency: {0}".format(num_workers.value))
+
+    for i in range(configurations["thread_limit"]):
+        if i < params[0]:
+            process_status[i] = 1
+        else:
+            process_status[i] = 0
+    
+
     start_time = time.time()
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
-    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
-
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
-    if len(file_names) < num_workers.value:
-        num_workers.value = len(file_names)
-        log.info("Effective Concurrency: {0}".format(num_workers.value))
-    
-    for i in range(num_workers.value):
-        process_status[i] = 1
-        
-    # time.sleep(probing_time)
-        
-    while np.sum(process_status)>0:
-        if (time.time() - start_time) > probing_time+2:
-            for i in range(num_workers.value):
-                process_status[i] = 0
-            
-        time.sleep(0.01)
-    
-    after_sc, after_rc = segments_sent.value, segments_retransmitted.value
-    sc, rc = after_sc - before_sc, after_rc - before_rc
-    
+    time.sleep(probing_time)
     score_after = np.sum(file_offsets)
+    after_sc, after_rc = segments_sent.value, segments_retransmitted.value
     score = score_after - score_before
-    duration = time.time() - start_time         
+    duration = time.time() - start_time 
+    sc, rc = after_sc - before_sc, after_rc - before_rc        
     thrpt = (score * 8) / (duration*1000*1000)
     
     lr, C = 0, int(configurations["C"])
     if sc != 0:
-        lr = rc/sc if sc>rc else 0.99
+        lr = rc/sc if sc>rc else 0
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     score_value = np.round(score_value * (-1), 4)
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
-    
-    # score_value = score_value * (
-    #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
-    
+
     return score_value
 
 
