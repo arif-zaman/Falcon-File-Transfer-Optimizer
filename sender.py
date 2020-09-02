@@ -249,14 +249,13 @@ def sample_transfer(params):
 def normal_transfer(params):
     global probe_again
     num_workers.value = params[0]
-    if sample_phase_number == 1:
-        chunk_size.value = get_buffer_size(params[1])
-        
+    chunk_size.value = get_buffer_size(params[1])
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
     files_left = len(transfer_status) - np.sum(transfer_status)
     if files_left < num_workers.value:
         num_workers.value = files_left
+        log.info("Effective Concurrency: {0}".format(num_workers.value))
 
     for i in range(num_workers.value):
         process_status[i] = 1
@@ -276,7 +275,7 @@ def normal_transfer(params):
     
     
 def run_transfer():
-    global probe_again, sample_phase_number
+    global probe_again
     probe_again = False
     sample_phase.value = 1
 

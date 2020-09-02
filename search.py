@@ -70,8 +70,8 @@ def gbrt(configurations, black_box_function, logger, verbose=True):
 
 def dummy(configurations, black_box_function, logger, verbose=True):    
     search_space  = [
-        Integer(1, configurations["thread_limit"], name='transfer_threads'),
-        Integer(1, configurations["chunk_limit"], name='bsize')
+        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(1, configurations["chunk_limit"])
     ]
     
     experiments = dummy_minimize(
@@ -95,7 +95,14 @@ def repetitive_probe(configurations, black_box_function, logger, verbose=True):
           
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(1, configurations["chunk_limit"])
     ]
+    
+    if configurations["emulab_test"]:
+        search_space  = [
+            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(6, 7)
+        ]
     
     experiments = gp_minimize(
         func=black_box_function,
