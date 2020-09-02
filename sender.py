@@ -102,7 +102,7 @@ def worker(indx):
                 addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
-                    target = 8
+                    target = 10
                     factor = 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target = int(max_speed/factor)
@@ -236,7 +236,7 @@ def sample_transfer(params):
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     score_value = np.round(score_value * (-1), 4)
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
-        np.round(thrpt), np.round(lr*100, 3), score_value))
+        np.round(thrpt), np.round(lr*100, 2), score_value))
     
     # score_value = score_value * (
     #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
