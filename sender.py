@@ -216,6 +216,7 @@ def sample_transfer(params):
             process_status[i] = 0
     
 
+    time.sleep(0.1)
     start_time = time.time()
     score_before = np.sum(file_offsets)
 
