@@ -201,15 +201,13 @@ def sample_transfer(params):
     start_time = time.time()
     score_before = np.sum(file_offsets)
     num_workers.value = params[0]
-    
-    if sample_phase_number == 1:
-        chunk_size.value = get_buffer_size(params[1])
-        
-    log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
-    
+    chunk_size.value = get_buffer_size(params[1])
+    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     if len(file_names) < num_workers.value:
         num_workers.value = len(file_names)
+        log.info("Effective Concurrency: {0}".format(num_workers.value))
     
     for i in range(num_workers.value):
         process_status[i] = 1
