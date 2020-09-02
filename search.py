@@ -5,7 +5,7 @@ import time
 # from bayes_opt import BayesianOptimization
 
 
-def bayes_gp(configurations, black_box_function, logger, verbose=True):  
+def gp(configurations, black_box_function, logger, verbose=True):  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -37,7 +37,7 @@ def bayes_gp(configurations, black_box_function, logger, verbose=True):
     return experiments.x
 
 
-def bayes_gbrt(configurations, black_box_function, logger, verbose=True):  
+def gbrt(configurations, black_box_function, logger, verbose=True):  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -66,6 +66,27 @@ def bayes_gbrt(configurations, black_box_function, logger, verbose=True):
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
     return experiments.x
+    
+
+def dummy(configurations, black_box_function, logger, verbose=True):    
+    search_space  = [
+        Integer(1, configurations["thread_limit"], name='transfer_threads'),
+        Integer(1, configurations["chunk_limit"], name='bsize')
+    ]
+    
+    experiments = dummy_minimize(
+        func=black_box_function,
+        dimensions=search_space,
+        n_calls=configurations["bayes"]["num_of_exp"],
+        random_state=None,
+        x0=None,
+        y0=None,
+        verbose=verbose,
+        # callback=None,
+    )
+    
+    logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
+    return experiments.x
 
 
 def repetitive_probe(configurations, black_box_function, logger, verbose=True):  
@@ -89,27 +110,6 @@ def repetitive_probe(configurations, black_box_function, logger, verbose=True):
         # callback=None,
         # xi=0.01, # EI or PI
         # kappa=1.96, # LCB only
-    )
-    
-    logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
-    return experiments.x
-    
-
-def random_opt(configurations, black_box_function, logger, verbose=True):    
-    search_space  = [
-        Integer(1, configurations["thread_limit"], name='transfer_threads'),
-        Integer(1, configurations["chunk_limit"], name='bsize')
-    ]
-    
-    experiments = dummy_minimize(
-        func=black_box_function,
-        dimensions=search_space,
-        n_calls=configurations["bayes"]["num_of_exp"],
-        random_state=None,
-        x0=None,
-        y0=None,
-        verbose=verbose,
-        # callback=None,
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
@@ -173,7 +173,3 @@ def random_brute_search(configurations, black_box_function, logger, verbose=True
     params = [min_score_indx+1, 7]
     logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
     return params
-
-
-def probe_test_config(black_box_function, params):
-    black_box_function(params)

@@ -8,7 +8,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import bayes_gp, bayes_gbrt, random_opt, brute_force, random_brute_search
+from search import gp, gbrt, dummy, brute_force, random_brute_search
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -63,7 +63,6 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 
 def tcp_stats(addr):
     sent, retm = 0, 0
-    
     try:
         data = os.popen("ss -ti").read().split("\n")
 
@@ -282,7 +281,7 @@ def run_transfer():
     sample_phase.value = 1
 
     if configurations["method"].lower() == "random":
-        params = random_opt(configurations, sample_transfer, log)
+        params = dummy(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "brute":
         params = brute_force(configurations, sample_transfer, log)
@@ -295,7 +294,7 @@ def run_transfer():
         chunk_size.value = get_buffer_size(params[1])
         
     else:
-        params = bayes_gbrt(configurations, sample_transfer, log)
+        params = gbrt(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     if kill_transfer.value == 0:
