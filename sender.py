@@ -88,6 +88,9 @@ def worker(indx):
             if (len(transfer_status) == np.sum(transfer_status)):
                 kill_transfer.value = 1
         else:
+            while num_workers.value < 1:
+                pass
+            
             log.debug("Start - {0}".format(indx))
             sc, rc = 0, 0
             start = time.time()
