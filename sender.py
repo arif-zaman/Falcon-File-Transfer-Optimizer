@@ -90,7 +90,7 @@ def worker(indx):
         else:
             while num_workers.value < 1:
                 pass
-            
+
             log.debug("Start - {0}".format(indx))
             sc, rc = 0, 0
             start = time.time()
@@ -148,7 +148,7 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            if (time.time() - last_time_since_stats) > (probing_time - 0.02):
+                            if (time.time() - last_time_since_stats) > 0.95:
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
