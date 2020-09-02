@@ -46,7 +46,6 @@ root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 probe_again = False
-sample_phase_number = 0
 
 segments_sent = mp.Value("i", 0)
 segments_retransmitted = mp.Value("i", 0)
@@ -149,7 +148,7 @@ def worker(indx):
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
-                                last_time_since_stats = 0
+                                last_time_since_stats = time.time()
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
@@ -201,7 +200,6 @@ def get_retransmitted_packet_count():
 
 
 def sample_transfer(params):
-    global sample_phase_number
     if kill_transfer.value == 1:
         return 10 ** 10
         
@@ -219,8 +217,10 @@ def sample_transfer(params):
 
     start_time = time.time()
     score_before = np.sum(file_offsets)
+
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
+
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     time.sleep(probing_time)
     score_after = np.sum(file_offsets)
