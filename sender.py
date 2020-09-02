@@ -109,8 +109,9 @@ def worker(indx):
                     second_data_count = 0
 
                 for i in range(indx, len(file_names), num_workers.value):
-                    duration = time.time() - start
-                    if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
+                    # duration = time.time() - start
+                    #(sample_phase.value == 1 and (duration > probing_time)) or 
+                    if process_status[indx] == 0:
                         break
                     
                     if transfer_status[i] == 0:
@@ -144,7 +145,7 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            if (time.time() - last_time_since_stats) >= (probing_time - 0.02):
+                            if (time.time() - last_time_since_stats) > (probing_time - 0.02):
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
@@ -172,9 +173,9 @@ def worker(indx):
                 sock.close()
             
             except socket.timeout as e:
-                duration = time.time() - start
-                if (sample_phase.value == 1 and (duration > probing_time)):
-                    process_status[indx] = 0
+                # duration = time.time() - start
+                # if (sample_phase.value == 1 and (duration > probing_time)):
+                #     process_status[indx] = 0
                 
                 log.error("{0}, {1}".format(indx, str(e)))
                 
@@ -203,7 +204,7 @@ def sample_transfer(params):
     if kill_transfer.value == 1:
         return 10 ** 10
         
-    log.info("Sample Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+    log.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     if len(file_names) < num_workers.value:
         params[0] = len(file_names)
         log.info("Effective Concurrency: {0}".format(num_workers.value))
