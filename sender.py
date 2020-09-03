@@ -93,7 +93,7 @@ def worker(indx):
                 pass
 
             log.debug("Start - {0}".format(indx))
-            # start = time.time()
+            start = time.time()
             
             try:
                 sock = socket.socket()
@@ -153,13 +153,13 @@ def worker(indx):
                             #     segments_retransmitted.value += rc
                             #     calculate_stats[indx] = 0
 
-                            # duration = time.time() - start
-                            # if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
-                            #     if sent == 0:
-                            #         transfer_status[i] = 1
-                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            duration = time.time() - start
+                            if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
+                                if sent == 0:
+                                    transfer_status[i] = 1
+                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                            #     break
+                                break
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -242,9 +242,6 @@ def sample_transfer(params):
     
     # while np.sum(calculate_stats) > 0:
     #     pass
-
-    for i in range(params[0]):
-        process_status[i] = 0
 
     while np.sum(process_status)>0:
         pass
