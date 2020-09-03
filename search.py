@@ -136,7 +136,7 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     
     else:
         ccs = [i+1 for i in range(max_thread)]
-        ccs = np.random.shuffle(ccs)
+        np.random.shuffle(ccs)
         max_chunk_size = 1
         j = 6
         for i in range(max_thread):
