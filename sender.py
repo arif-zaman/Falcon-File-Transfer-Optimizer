@@ -97,7 +97,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(probing_time)
+                sock.settimeout(10)
                 sock.connect((HOST, PORT))
                 
                 own_addr = sock.getsockname()
