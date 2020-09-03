@@ -144,7 +144,7 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
             score.append(black_box_function(params))
     
     min_score_indx= int(np.argmin(score)/max_chunk_size)
-    params = [min_score_indx+1, j+1]
+    params = [ccs[min_score_indx], j+1]
     logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
     return params
 
