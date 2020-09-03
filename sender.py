@@ -97,7 +97,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(10)
+                sock.settimeout(1)
                 sock.connect((HOST, PORT))
                 
                 own_addr = sock.getsockname()
@@ -180,7 +180,8 @@ def worker(indx):
                 # if (sample_phase.value == 1 and (duration > probing_time)):
                 #     process_status[indx] = 0
                 
-                log.error("{0}, {1}".format(indx, str(e)))
+                # log.error("{0}, {1}".format(indx, str(e)))
+                pass
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
@@ -218,7 +219,7 @@ def sample_transfer(params):
         else:
             process_status[i] = 0
 
-    time.sleep(0.1)
+    time.sleep(1)
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
