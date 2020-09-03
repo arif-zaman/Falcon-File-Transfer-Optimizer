@@ -211,11 +211,14 @@ def sample_transfer(params):
         params[0] = len(file_names)
         log.info("Effective Concurrency: {0}".format(num_workers.value))
 
-    for i in range(configurations["thread_limit"]):
-        if i < params[0]:
-            process_status[i] = 1
-        else:
-            process_status[i] = 0
+    # for i in range(configurations["thread_limit"]):
+    #     if i < params[0]:
+    #         process_status[i] = 1
+    #     else:
+    #         process_status[i] = 0
+
+    for i in range(params[0]):
+        process_status[i] = 1
     
 
     time.sleep(0.1)
@@ -244,6 +247,9 @@ def sample_transfer(params):
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
     score = score_after - score_before
     duration = time.time() - start_time 
+
+    for i in range(params[0]):
+        process_status[i] = 0
 
     sc, rc = after_sc - before_sc, after_rc - before_rc        
     thrpt = (score * 8) / (duration*1000*1000)
