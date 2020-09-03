@@ -93,7 +93,7 @@ def worker(indx):
                 pass
 
             log.debug("Start - {0}".format(indx))
-            start = time.time()
+            # start = time.time()
             
             try:
                 sock = socket.socket()
@@ -146,8 +146,9 @@ def worker(indx):
                                         pass
                                     
                                     timer100ms = time.time()
-                                    
+
                             if calculate_stats[indx] == 1:
+                                time.sleep(0.05)
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
