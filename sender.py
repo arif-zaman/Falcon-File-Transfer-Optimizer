@@ -147,11 +147,11 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            if calculate_stats[indx] == 1:
-                                sc, rc = tcp_stats(addr)
-                                segments_sent.value += sc
-                                segments_retransmitted.value += rc
-                                calculate_stats[indx] = 0
+                            # if calculate_stats[indx] == 1:
+                            #     sc, rc = tcp_stats(addr)
+                            #     segments_sent.value += sc
+                            #     segments_retransmitted.value += rc
+                            #     calculate_stats[indx] = 0
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
@@ -166,9 +166,9 @@ def worker(indx):
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
                 
-                # sc, rc = tcp_stats(addr)
-                # segments_sent.value += sc
-                # segments_retransmitted.value += rc
+                sc, rc = tcp_stats(addr)
+                segments_sent.value += sc
+                segments_retransmitted.value += rc
                 # lr = rc/sc if sc>0 else 0
                 # log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
                 process_status[indx] = 0
@@ -228,28 +228,31 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
-    for i in range(params[0]):
-        calculate_stats[i] = 1
+    # for i in range(params[0]):
+    #     calculate_stats[i] = 1
     
-    while np.sum(calculate_stats) > 0:
-        pass
+    # while np.sum(calculate_stats) > 0:
+    #     pass
 
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     time.sleep(probing_time)
 
-    for i in range(params[0]):
-        calculate_stats[i] = 1
+    # for i in range(params[0]):
+    #     calculate_stats[i] = 1
     
-    while np.sum(calculate_stats) > 0:
+    # while np.sum(calculate_stats) > 0:
+    #     pass
+
+    for i in range(params[0]):
+        process_status[i] = 0
+
+    while np.sum(process_status)>0:
         pass
 
     score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
     score = score_after - score_before
     duration = time.time() - start_time 
-
-    for i in range(params[0]):
-        process_status[i] = 0
 
     sc, rc = after_sc - before_sc, after_rc - before_rc        
     thrpt = (score * 8) / (duration*1000*1000)
