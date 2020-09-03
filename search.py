@@ -135,10 +135,12 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
                 score.append(black_box_function(params))
     
     else:
+        ccs = [i+1 for i in range(max_thread)]
+        ccs = np.random.shuffle(ccs)
         max_chunk_size = 1
         j = 6
         for i in range(max_thread):
-            params = [i+1, j+1]
+            params = [ccs[i], j+1]
             score.append(black_box_function(params))
     
     min_score_indx= int(np.argmin(score)/max_chunk_size)
