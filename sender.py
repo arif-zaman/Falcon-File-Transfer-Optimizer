@@ -244,7 +244,10 @@ def sample_transfer(params):
     #     pass
 
     while np.sum(process_status)>0:
-        pass
+        for i in range(params[0]):
+            process_status[i] = 0
+        
+        time.sleep(0.01)
 
     score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
