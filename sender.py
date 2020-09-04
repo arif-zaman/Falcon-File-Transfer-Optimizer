@@ -335,29 +335,29 @@ def report_throughput(start_time):
     # max_mean_thrpt = 0
     # sampling_ended = 0 
     
+    time.sleep(0.9)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         t1 = time.time()
-        curr_time = time.time()
-        time_sec = np.round(curr_time-start_time, 3)
+        time_since_begining = np.round(t1-start_time, 3)
         total_bytes = np.sum(file_offsets)
-        thrpt = np.round((total_bytes*8)/(time_sec*1000*1000), 2)
+        thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
         
         curr_total = total_bytes - previous_total
-        curr_time_sec = np.round(time_sec - previous_time, 3)
+        curr_time_sec = np.round(time_since_begining - previous_time, 3)
         curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
-        previous_time, previous_total = time_sec, total_bytes
+        previous_time, previous_total = time_since_begining, total_bytes
         throughput_logs.append(curr_thrpt)
-        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_since_begining, curr_thrpt, thrpt))
 
         # if sample_phase.value == 0:
         #     if sampling_ended == 0:
-        #         sampling_ended = time_sec
+        #         sampling_ended = time_since_begining
             
-        #     if (time_sec - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
+        #     if (time_since_begining - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
         #         log.info("Alas! Transfer is Stuck. Killing it!")
         #         kill_transfer.value = 1
                 
-        #     if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
+        #     if configurations["multiple_probe"] and (time_since_begining - sampling_ended > 10):
         #         n = 10
         #         last_n_sec_thrpt = np.mean(throughput_logs[-n:])
         #         max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
@@ -382,7 +382,7 @@ def report_throughput(start_time):
         #     min_mean_thrpt = 100000
         #     sampling_ended = 0
         
-        t2 = time.sleep()
+        t2 = time.time()
         time.sleep(1 - (t2-t1))
 
 
@@ -401,10 +401,10 @@ if __name__ == '__main__':
     run_transfer()
     end = time.time()
             
-    time_sec = np.round(end-start, 3)
+    time_since_begining = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
-    thrpt = np.round((total*8*1024)/time_sec,2)
-    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_sec, thrpt))
+    thrpt = np.round((total*8*1024)/time_since_begining,2)
+    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_since_begining, thrpt))
     
     for p in workers:
         if p.is_alive():
