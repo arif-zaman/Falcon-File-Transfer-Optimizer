@@ -97,7 +97,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(1)
+                sock.settimeout(5)
                 sock.connect((HOST, PORT))
                 
                 own_addr = sock.getsockname()
@@ -252,7 +252,7 @@ def sample_transfer(params):
     duration = time.time() - start_time
     score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
-    
+
     score = score_after - score_before
     sc, rc = after_sc - before_sc, after_rc - before_rc        
     thrpt = (score * 8) / (duration*1000*1000)
