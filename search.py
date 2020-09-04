@@ -22,7 +22,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         n_initial_points=configurations["thread"]["random_probe"],
         # acq_func="LCB",
         # acq_func_kwargs={"kappa":5},
-        model_queue_size=limit_obs
+        model_queue_size= limit_obs
     )
 
     count = configurations["thread"]["random_probe"]
@@ -44,14 +44,13 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         t2 = time.time()
 
         for i in range(len(experiments.Xi)-1):
-            logger.info((experiments.Xi[-1], experiments.yi[-1]))
             if experiments.Xi[i] == experiments.Xi[-1]:
                 experiments.yi[i] = experiments.yi[-1]
 
         if verbose:
             indx = np.argmin(experiments.yi)
-            logger.info("Iteration {0} Ends, Took {3} Seconds. Last {4} Observations -- Best Params: {1} and Score: {2}.".format(
-                count, experiments.Xi[indx], experiments.yi[indx], np.round(t2-t1, 2), limit_obs))
+            logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
+                count, experiments.Xi[indx], experiments.yi[indx], np.round(t2-t1, 2)))
 
 
 
