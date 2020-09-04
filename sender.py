@@ -95,6 +95,7 @@ def worker(indx):
 
             log.debug("Start - {0}".format(indx))
             start = time.time()
+            next_time_to_collect_stats = start + 2
             
             try:
                 sock = socket.socket()
@@ -146,45 +147,44 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            # t1 = time.time()
                             # if calculate_stats[indx] == 1:
-                            #     time.sleep(0.1)
-                            #     sc, rc = tcp_stats(addr)
-                            #     segments_sent.value += sc
-                            #     segments_retransmitted.value += rc
-                            #     calculate_stats[indx] = 0
+                            if next_time_to_collect_stats > time.time(): 
+                                sc, rc = tcp_stats(addr)
+                                segments_sent.value += sc
+                                segments_retransmitted.value += rc
+                                # calculate_stats[indx] = 0
+                                next_time_to_collect_stats += 1
                             
 
-                            duration = time.time() - start
-                            if (sample_phase.value == 1 and (duration > probing_time)):
-                                if sent == 0:
-                                    transfer_status[i] = 1
-                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            # duration = time.time() - start
+                            # if (sample_phase.value == 1 and (duration > probing_time)):
+                            #     if sent == 0:
+                            #         transfer_status[i] = 1
+                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                                process_status[indx] = 0
+                            #     process_status[indx] = 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
                 
-                sc, rc = tcp_stats(addr)
-                segments_sent.value += sc
-                segments_retransmitted.value += rc
+                # sc, rc = tcp_stats(addr)
+                # segments_sent.value += sc
+                # segments_retransmitted.value += rc
                 # lr = rc/sc if sc>0 else 0
                 # log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
                 process_status[indx] = 0
                 sock.close()
             
             except socket.timeout as e:
-                duration = time.time() - start
-                if (sample_phase.value == 1 and (duration > probing_time)):
-                    process_status[indx] = 0
-                
-                # log.error("{0}, {1}".format(indx, str(e)))
+                log.error("Process: {0}, Error: {1}".format(indx, str(e)))
+                # duration = time.time() - start
+                # if (sample_phase.value == 1 and (duration > probing_time)):
+                #     process_status[indx] = 0
                 
             except Exception as e:
-                log.error("{0}, {1}".format(indx, str(e)))
+                log.error("Process: {0}, Error: {1}".format(indx, str(e)))
             
             log.debug("End - {0}".format(indx))
     
@@ -217,20 +217,20 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
-    # for i in range(configurations["thread_limit"]):
-    #     if i < params[0]:
-    #         process_status[i] = 1
-    #     else:
-    #         process_status[i] = 0
+    for i in range(configurations["thread_limit"]):
+        if i < params[0]:
+            process_status[i] = 1
+        else:
+            process_status[i] = 0
 
-    # time.sleep(1)
+    time.sleep(probing_time-2)
 
-    for i in range(params[0]):
-        process_status[i] = 1 
+    # for i in range(params[0]):
+    #     process_status[i] = 1 
 
 
-    start_time = time.time()
-    score_before = np.sum(file_offsets)
+    # start_time = time.time()
+    # score_before = np.sum(file_offsets)
 
     # for i in range(params[0]):
     #     calculate_stats[i] = 1
@@ -239,8 +239,7 @@ def sample_transfer(params):
     #     pass
 
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
-    
-    # time.sleep(probing_time)
+    time.sleep(2)
 
     # for i in range(params[0]):
     #     calculate_stats[i] = 1
@@ -248,16 +247,15 @@ def sample_transfer(params):
     # while np.sum(calculate_stats) > 0:
     #     pass
 
-    while np.sum(process_status)>0:
-        pass
+    # while np.sum(process_status)>0:
+    #     pass
     
-    duration = time.time() - start_time
-    score_after = np.sum(file_offsets)
+    # duration = time.time() - start_time
+    # score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
 
-    score = score_after - score_before
-    sc, rc = after_sc - before_sc, after_rc - before_rc
-    print(throughput_logs[-2:])        
+    # score = score_after - score_before
+    sc, rc = after_sc - before_sc, after_rc - before_rc  
     thrpt = np.mean(throughput_logs[-2:])#(score * 8) / (duration*1000*1000)
     lr, C = 0, int(configurations["C"])
     if sc != 0:
@@ -265,8 +263,6 @@ def sample_transfer(params):
     
     score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
     score_value = np.round(score_value * (-1), 4)
-    # score_value = score_value * (
-    #     1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
     
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
