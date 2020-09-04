@@ -8,7 +8,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import gp, gbrt, dummy, brute_force, random_brute_search
+from search import  base_optimizer, gp, gbrt, dummy, brute_force, random_brute_search
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -262,17 +262,18 @@ def normal_transfer(params):
         process_status[i] = 1
     
     while (np.sum(process_status) > 0) and (kill_transfer.value == 0):
-        if probe_again:
-            files_left = len(transfer_status) - np.sum(transfer_status)
-            if files_left <= np.sum(process_status):
-                log.info("Not much transfer is left. Further probing request ignored!")
-            else:
-                break
+        pass
+        # if probe_again:
+        #     files_left = len(transfer_status) - np.sum(transfer_status)
+        #     if files_left <= np.sum(process_status):
+        #         log.info("Not much transfer is left. Further probing request ignored!")
+        #     else:
+        #         break
             
-        time.sleep(0.01)
+        # time.sleep(0.01)
 
-    if probe_again and (len(transfer_status) > np.sum(transfer_status)):
-        run_transfer()
+    # if probe_again and (len(transfer_status) > np.sum(transfer_status)):
+    #     run_transfer()
     
     
 def run_transfer():
@@ -294,7 +295,7 @@ def run_transfer():
         chunk_size.value = get_buffer_size(params[1])
         
     else:
-        params = gp(configurations, sample_transfer, log)
+        base_optimizer(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     if kill_transfer.value == 0:

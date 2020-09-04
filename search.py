@@ -1,8 +1,52 @@
 from skopt.space import Integer
-from skopt import gp_minimize, dummy_minimize, gbrt_minimize
+from skopt import gp_minimize, dummy_minimize, gbrt_minimize, Optimizer
 import numpy as np
 import time
-# from bayes_opt import BayesianOptimization
+
+
+def base_optimizer(configurations, black_box_function, logger, verbose=True):
+    limit_obs = 10  
+    search_space  = [
+        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(1, configurations["chunk_limit"])
+    ]
+    
+    if configurations["emulab_test"]:
+        search_space  = [
+            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(6, 7)
+        ]
+        
+    experiments = Optimizer(
+        dimensions=search_space,
+        n_initial_points=configurations["thread"]["random_probe"],
+        acq_func="LCB",
+        acq_func_kwargs={"kappa":5},
+        model_queue_size=limit_obs
+    )
+
+    count = configurations["thread"]["random_probe"]
+    if verbose:
+        logger.info("Running Initial {0} Random Evaluations ...".format(count))
+
+    experiments.run(func=black_box_function, n_iter=count)
+    
+    while (experiments.yi[-1] != 10 ** 10):
+        count += 1
+        experiments.yi = experiments.yi[-limit_obs:]
+        experiments.Xi = experiments.Xi[-limit_obs:]
+        
+        if verbose:
+            logger.info("Iteration {0} Starts ...".format(count))
+
+        t1 = time.time()
+        res = experiments.run(func=black_box_function, n_iter=1)
+        t2 = time.time()
+
+        if verbose:
+            logger.info("Iteration {0} Ends. Best Params: {1} and Score: {2}. Took {3} seconds".format(
+                count, res.x, res.fun, np.round(t2-t1, 2)))
+
 
 
 def gp(configurations, black_box_function, logger, verbose=True):  
