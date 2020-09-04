@@ -28,6 +28,7 @@ configurations["thread"] = {
     "random_probe": configurations["bayes"]["initial_run"]
 }
 
+throughput_logs = []
 
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
@@ -224,7 +225,7 @@ def sample_transfer(params):
 
     for i in range(params[0]):
         process_status[i] = 1 
-        
+
 
     start_time = time.time()
     score_before = np.sum(file_offsets)
@@ -254,7 +255,7 @@ def sample_transfer(params):
 
     score = score_after - score_before
     sc, rc = after_sc - before_sc, after_rc - before_rc        
-    thrpt = (score * 8) / (duration*1000*1000)
+    thrpt = np.mean(throughput_logs[:-2])#(score * 8) / (duration*1000*1000)
     lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0
@@ -325,10 +326,9 @@ def run_transfer():
     
 
 def report_throughput(start_time):
-    global probe_again
+    global probe_again, throughput_logs
     previous_total = 0
     previous_time = 0
-    throughput_logs = []
     max_mean_thrpt = 0
     sampling_ended = 0 
     
