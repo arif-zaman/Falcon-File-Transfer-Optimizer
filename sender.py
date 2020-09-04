@@ -157,7 +157,7 @@ def worker(indx):
                             
 
                             duration = time.time() - start
-                            if (sample_phase.value == 1 and (duration > probing_time)) or (process_status[indx] == 0):
+                            if (sample_phase.value == 1 and (duration > probing_time)):
                                 if sent == 0:
                                     transfer_status[i] = 1
                                     log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
@@ -182,7 +182,7 @@ def worker(indx):
                 if (sample_phase.value == 1 and (duration > probing_time)):
                     process_status[indx] = 0
                 
-                # log.error("{0}, {1}".format(indx, str(e)))
+                log.error("{0}, {1}".format(indx, str(e)))
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
