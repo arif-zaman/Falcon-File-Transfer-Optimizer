@@ -99,7 +99,7 @@ def worker(indx):
             
             try:
                 sock = socket.socket()
-                sock.settimeout(5)
+                sock.settimeout(3)
                 sock.connect((HOST, PORT))
                 
                 own_addr = sock.getsockname()
@@ -222,7 +222,7 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
-    for i in range(params[0]):
+    for i in range(configurations["thread_limit"]):
         process_status[i] = 0
 
     while np.sum(process_status)>0:
