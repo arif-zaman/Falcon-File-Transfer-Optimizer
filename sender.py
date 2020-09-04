@@ -178,12 +178,11 @@ def worker(indx):
                 sock.close()
             
             except socket.timeout as e:
-                # duration = time.time() - start
-                # if (sample_phase.value == 1 and (duration > probing_time)):
-                #     process_status[indx] = 0
+                duration = time.time() - start
+                if (sample_phase.value == 1 and (duration > probing_time)):
+                    process_status[indx] = 0
                 
                 # log.error("{0}, {1}".format(indx, str(e)))
-                pass
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
