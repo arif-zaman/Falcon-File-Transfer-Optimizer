@@ -20,8 +20,8 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     experiments = Optimizer(
         dimensions=search_space,
         n_initial_points=configurations["thread"]["random_probe"],
-        # acq_func="LCB",
-        # acq_func_kwargs={"kappa":5},
+        acq_func="LCB",
+        acq_func_kwargs={"kappa": 1.96},
         model_queue_size= limit_obs
     )
 
