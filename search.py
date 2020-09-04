@@ -5,7 +5,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs = 25  
+    limit_obs = 50  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -20,8 +20,9 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     experiments = Optimizer(
         dimensions=search_space,
         n_initial_points=configurations["thread"]["random_probe"],
-        acq_func="LCB",
-        acq_func_kwargs={"kappa": 1.96},
+        # acq_func="LCB",
+        # acq_func_kwargs={"kappa": 1.96},
+        acq_optimizer="lbfgs",
         model_queue_size= limit_obs
     )
 
