@@ -31,7 +31,7 @@ def gp(configurations, black_box_function, logger, verbose=True):
         verbose=verbose,
         # callback=None,
         xi=0.01, # EI or PI
-        kappa=10, # LCB only
+        kappa=5, # LCB only
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
