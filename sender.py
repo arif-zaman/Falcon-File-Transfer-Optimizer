@@ -162,7 +162,7 @@ def worker(indx):
                                     transfer_status[i] = 1
                                     log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                                process_status[indx] == 0
+                                process_status[indx] = 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -248,12 +248,12 @@ def sample_transfer(params):
 
     while np.sum(process_status)>0:
         pass
-
+    
+    duration = time.time() - start_time
     score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
+    
     score = score_after - score_before
-    duration = time.time() - start_time 
-
     sc, rc = after_sc - before_sc, after_rc - before_rc        
     thrpt = (score * 8) / (duration*1000*1000)
     lr, C = 0, int(configurations["C"])
