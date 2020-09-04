@@ -256,8 +256,8 @@ def sample_transfer(params):
 
     score = score_after - score_before
     sc, rc = after_sc - before_sc, after_rc - before_rc
-    print(throughput_logs[:-2])        
-    thrpt = np.mean(throughput_logs[:-2])#(score * 8) / (duration*1000*1000)
+    print(throughput_logs[-2:])        
+    thrpt = np.mean(throughput_logs[-2:])#(score * 8) / (duration*1000*1000)
     lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0
