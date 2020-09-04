@@ -95,7 +95,7 @@ def worker(indx):
 
             log.debug("Start - {0}".format(indx))
             start = time.time()
-            next_time_to_collect_stats = start + 2.25
+            next_time_to_collect_stats = start + 0.85
             
             try:
                 sock = socket.socket()
@@ -155,7 +155,7 @@ def worker(indx):
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
                                 # calculate_stats[indx] = 0
-                                next_time_to_collect_stats += 2.5
+                                next_time_to_collect_stats += 1
 
                                 # t2 = time.time()
                                 # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
