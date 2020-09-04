@@ -44,6 +44,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         t2 = time.time()
 
         for i in range(len(experiments.Xi)-1):
+            logger.info((experiments.Xi[-1], experiments.yi[-1]))
             if experiments.Xi[i] == experiments.Xi[-1]:
                 experiments.yi[i] = experiments.yi[-1]
 
