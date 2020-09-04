@@ -320,7 +320,7 @@ def run_transfer():
         chunk_size.value = get_buffer_size(params[1])
         
     else:
-        params = gbrt(configurations, sample_transfer, log)
+        params = gp(configurations, sample_transfer, log)
     
     sample_phase.value = 0
     if kill_transfer.value == 0:

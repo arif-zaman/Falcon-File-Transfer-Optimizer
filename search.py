@@ -20,8 +20,10 @@ def gp(configurations, black_box_function, logger, verbose=True):
     experiments = gp_minimize(
         func=black_box_function,
         dimensions=search_space,
-        # acq_func="EI", # [LCB, EI, PI]
-        # acq_optimizer="lbfgs", # [sampling, lbfgs]
+        initial_point_generator="lhs",
+        acq_func="LCB", # [LCB, EI, PI, gp_hedge]
+        acq_optimizer="sampling", # [sampling, lbfgs]
+        n_points=20,
         n_calls=configurations["thread"]["iteration"],
         n_random_starts=configurations["thread"]["random_probe"],
         random_state=None,
@@ -29,8 +31,8 @@ def gp(configurations, black_box_function, logger, verbose=True):
         y0=None,
         verbose=verbose,
         # callback=None,
-        # xi=0.01, # EI or PI
-        # kappa=1.96, # LCB only
+        xi=0.01, # EI or PI
+        kappa=10, # LCB only
     )
     
     logger.info("Best parameters: {0} and score: {1}".format(experiments.x, experiments.fun))
