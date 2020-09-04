@@ -95,7 +95,7 @@ def worker(indx):
 
             log.debug("Start - {0}".format(indx))
             start = time.time()
-            next_time_to_collect_stats = start + 2
+            next_time_to_collect_stats = start + 2.25
             
             try:
                 sock = socket.socket()
@@ -150,15 +150,15 @@ def worker(indx):
                             # if calculate_stats[indx] == 1:
                             
                             t1 = time.time()
-                            if next_time_to_collect_stats > time.time(): 
+                            if next_time_to_collect_stats < time.time(): 
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
                                 # calculate_stats[indx] = 0
-                                next_time_to_collect_stats += 2
+                                next_time_to_collect_stats += 2.5
 
                             t2 = time.time()
-                            log.error("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
+                            log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)):
