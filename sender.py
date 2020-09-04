@@ -55,7 +55,6 @@ num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
 kill_transfer = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-calculate_stats = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
 
@@ -147,26 +146,23 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
                             
-                            # if calculate_stats[indx] == 1:
-                            
                             # t1 = time.time()
                             if next_time_to_collect_stats < time.time(): 
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
-                                # calculate_stats[indx] = 0
                                 next_time_to_collect_stats += 1
 
                                 # t2 = time.time()
                                 # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
-                            # duration = time.time() - start
-                            # if (sample_phase.value == 1 and (duration > probing_time)):
-                            #     if sent == 0:
-                            #         transfer_status[i] = 1
-                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            duration = time.time() - start
+                            if (sample_phase.value == 1 and (duration > probing_time)):
+                                if sent == 0:
+                                    transfer_status[i] = 1
+                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                            #     process_status[indx] = 0
+                                process_status[indx] = 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -223,12 +219,6 @@ def sample_transfer(params):
     chunk_size.value = get_buffer_size(params[1])
 
     for i in range(configurations["thread_limit"]):
-        process_status[i] = 0
-
-    while np.sum(process_status)>0:
-        pass 
-
-    for i in range(configurations["thread_limit"]):
         if i < params[0]:
             process_status[i] = 1
         else:
@@ -238,7 +228,6 @@ def sample_transfer(params):
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     time.sleep(2)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
-
 
     sc, rc = after_sc - before_sc, after_rc - before_rc  
     thrpt = np.mean(throughput_logs[-2:])
@@ -251,6 +240,9 @@ def sample_transfer(params):
     
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
+
+    while np.sum(process_status)>0:
+        pass 
 
     return score_value
 
