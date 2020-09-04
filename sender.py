@@ -222,6 +222,10 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
+    for i in range(params[0]):
+        process_status[i] = 1 
+        
+
     start_time = time.time()
     score_before = np.sum(file_offsets)
 
@@ -232,9 +236,6 @@ def sample_transfer(params):
     #     pass
 
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
-
-    for i in range(params[0]):
-        process_status[i] = 1
     
     # time.sleep(probing_time)
 
