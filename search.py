@@ -5,7 +5,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs = 15  
+    limit_obs = 25  
     search_space  = [
         Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
@@ -40,12 +40,17 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             logger.info("Iteration {0} Starts ...".format(count))
 
         t1 = time.time()
-        res = experiments.run(func=black_box_function, n_iter=1)
+        experiments.run(func=black_box_function, n_iter=1)
         t2 = time.time()
 
+        for i in range(len(experiments.Xi)-1):
+            if experiments.Xi[i] == experiments.Xi[-1]:
+                experiments.yi[i] = experiments.yi[-1]
+
         if verbose:
-            logger.info("Iteration {0} Ends. Best Params: {1} and Score: {2}. Took {3} seconds".format(
-                count, res.x, res.fun, np.round(t2-t1, 2)))
+            indx = np.argmin(experiments.yi)
+            logger.info("Iteration {0} Ends, Took {3} Seconds. Last {4} Observations -- Best Params: {1} and Score: {2}.".format(
+                count, experiments.Xi[indx], experiments.yi[indx], np.round(t2-t1, 2), limit_obs))
 
 
 
