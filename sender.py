@@ -260,8 +260,11 @@ def sample_transfer(params):
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = thrpt #* (1 - C * ((1/(1-lr))-1)) 
     score_value = np.round(score_value * (-1), 4)
+    score_value = score_value * (
+        1 + (configurations["thread_limit"] - num_workers.value)/(2*configurations["thread_limit"]))
+    
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
