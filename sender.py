@@ -93,15 +93,15 @@ def worker(indx):
                 pass
 
             log.debug("Start - {0}".format(indx))
-            start = time.time()
+            # start = time.time()
             
             try:
                 sock = socket.socket()
                 sock.settimeout(5)
                 sock.connect((HOST, PORT))
                 
-                own_addr = sock.getsockname()
-                addr = str(own_addr[0]) + ":" + str(own_addr[1])
+                # own_addr = sock.getsockname()
+                # addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
                     target = 10
@@ -178,11 +178,12 @@ def worker(indx):
                 sock.close()
             
             except socket.timeout as e:
-                duration = time.time() - start
-                if (sample_phase.value == 1 and (duration > probing_time)):
-                    process_status[indx] = 0
+                # duration = time.time() - start
+                # if (sample_phase.value == 1 and (duration > probing_time)):
+                #     process_status[indx] = 0
                 
-                log.error("{0}, {1}".format(indx, str(e)))
+                # log.error("{0}, {1}".format(indx, str(e)))
+                pass
                 
             except Exception as e:
                 log.error("{0}, {1}".format(indx, str(e)))
