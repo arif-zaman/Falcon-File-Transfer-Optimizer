@@ -182,7 +182,8 @@ def worker(indx):
                 sock.close()
             
             except socket.timeout as e:
-                log.error("Process: {0}, Error: {1}".format(indx, str(e)))
+                pass
+                # log.error("Process: {0}, Error: {1}".format(indx, str(e)))
                 # duration = time.time() - start
                 # if (sample_phase.value == 1 and (duration > probing_time)):
                 #     process_status[indx] = 0
@@ -221,6 +222,12 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
+    for i in range(params[0]):
+        process_status[i] = 0
+
+    while np.sum(process_status)>0:
+        pass 
+
     for i in range(configurations["thread_limit"]):
         if i < params[0]:
             process_status[i] = 1
@@ -228,39 +235,13 @@ def sample_transfer(params):
             process_status[i] = 0
 
     time.sleep(probing_time-2)
-
-    # for i in range(params[0]):
-    #     process_status[i] = 1 
-
-
-    # start_time = time.time()
-    # score_before = np.sum(file_offsets)
-
-    # for i in range(params[0]):
-    #     calculate_stats[i] = 1
-    
-    # while np.sum(calculate_stats) > 0:
-    #     pass
-
     before_sc, before_rc = segments_sent.value, segments_retransmitted.value
     time.sleep(2)
-
-    # for i in range(params[0]):
-    #     calculate_stats[i] = 1
-    
-    # while np.sum(calculate_stats) > 0:
-    #     pass
-
-    # while np.sum(process_status)>0:
-    #     pass
-    
-    # duration = time.time() - start_time
-    # score_after = np.sum(file_offsets)
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
 
-    # score = score_after - score_before
+
     sc, rc = after_sc - before_sc, after_rc - before_rc  
-    thrpt = np.mean(throughput_logs[-2:])#(score * 8) / (duration*1000*1000)
+    thrpt = np.mean(throughput_logs[-2:])
     lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0
