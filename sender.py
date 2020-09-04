@@ -254,7 +254,8 @@ def sample_transfer(params):
     after_sc, after_rc = segments_sent.value, segments_retransmitted.value
 
     score = score_after - score_before
-    sc, rc = after_sc - before_sc, after_rc - before_rc        
+    sc, rc = after_sc - before_sc, after_rc - before_rc
+    print(throughput_logs[:-2])        
     thrpt = np.mean(throughput_logs[:-2])#(score * 8) / (duration*1000*1000)
     lr, C = 0, int(configurations["C"])
     if sc != 0:
