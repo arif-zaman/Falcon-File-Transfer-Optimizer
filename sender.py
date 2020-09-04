@@ -205,6 +205,7 @@ def get_retransmitted_packet_count():
 
 
 def sample_transfer(params):
+    global throughput_logs
     if kill_transfer.value == 1:
         return 10 ** 10
         
