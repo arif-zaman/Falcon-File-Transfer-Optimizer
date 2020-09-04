@@ -155,10 +155,10 @@ def worker(indx):
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
                                 # calculate_stats[indx] = 0
-                                next_time_to_collect_stats += 2.5
+                                next_time_to_collect_stats += 2
 
-                            t2 = time.time()
-                            log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
+                                t2 = time.time()
+                                log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)):
