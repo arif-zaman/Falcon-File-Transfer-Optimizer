@@ -162,7 +162,7 @@ def worker(indx):
                                     transfer_status[i] = 1
                                     log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                                break
+                                process_status[indx] == 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
