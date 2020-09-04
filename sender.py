@@ -149,16 +149,16 @@ def worker(indx):
                             
                             # if calculate_stats[indx] == 1:
                             
-                            t1 = time.time()
+                            # t1 = time.time()
                             if next_time_to_collect_stats < time.time(): 
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
                                 # calculate_stats[indx] = 0
-                                next_time_to_collect_stats += 2
+                                next_time_to_collect_stats += 2.5
 
-                                t2 = time.time()
-                                log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
+                                # t2 = time.time()
+                                # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)):
@@ -332,11 +332,11 @@ def report_throughput(start_time):
     global probe_again, throughput_logs
     previous_total = 0
     previous_time = 0
-    max_mean_thrpt = 0
-    sampling_ended = 0 
+    # max_mean_thrpt = 0
+    # sampling_ended = 0 
     
-    time.sleep(1)
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
+        t1 = time.time()
         curr_time = time.time()
         time_sec = np.round(curr_time-start_time, 3)
         total_bytes = np.sum(file_offsets)
@@ -349,40 +349,41 @@ def report_throughput(start_time):
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_sec, curr_thrpt, thrpt))
 
-        if sample_phase.value == 0:
-            if sampling_ended == 0:
-                sampling_ended = time_sec
+        # if sample_phase.value == 0:
+        #     if sampling_ended == 0:
+        #         sampling_ended = time_sec
             
-            if (time_sec - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
-                log.info("Alas! Transfer is Stuck. Killing it!")
-                kill_transfer.value = 1
+        #     if (time_sec - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
+        #         log.info("Alas! Transfer is Stuck. Killing it!")
+        #         kill_transfer.value = 1
                 
-            if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
-                n = 10
-                last_n_sec_thrpt = np.mean(throughput_logs[-n:])
-                max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
-                min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
-                lower_limit = max_mean_thrpt * configurations["probing_threshold"]
-                upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
+        #     if configurations["multiple_probe"] and (time_sec - sampling_ended > 10):
+        #         n = 10
+        #         last_n_sec_thrpt = np.mean(throughput_logs[-n:])
+        #         max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
+        #         min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
+        #         lower_limit = max_mean_thrpt * configurations["probing_threshold"]
+        #         upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
                 
-                if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
-                    log.info("It Seems We Need to Probe Again!")
-                    probe_again = True
-                    # configurations["thread"]["min"] =max(int(num_workers.value/2), 1)
-                    # configurations["thread"]["max"] =min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"])
+        #         if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
+        #             log.info("It Seems We Need to Probe Again!")
+        #             probe_again = True
+        #             # configurations["thread"]["min"] =max(int(num_workers.value/2), 1)
+        #             # configurations["thread"]["max"] =min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"])
                     
-                    # if configurations["thread"]["max"] == configurations["thread"]["min"]:
-                    #     probe_again = False
+        #             # if configurations["thread"]["max"] == configurations["thread"]["min"]:
+        #             #     probe_again = False
                     
-                    # if configurations["thread"]["max"] > configurations["thread"]["min"]:  
-                    #     configurations["thread"]["iteration"] = min(configurations["thread"]["max"] - configurations["thread"]["min"], 8)
-                    #     configurations["thread"]["random_probe"] = max(1, int(configurations["thread"]["iteration"]/2))
-        else:
-            max_mean_thrpt = 0
-            min_mean_thrpt = 100000
-            sampling_ended = 0
-                
-        time.sleep(0.998)
+        #             # if configurations["thread"]["max"] > configurations["thread"]["min"]:  
+        #             #     configurations["thread"]["iteration"] = min(configurations["thread"]["max"] - configurations["thread"]["min"], 8)
+        #             #     configurations["thread"]["random_probe"] = max(1, int(configurations["thread"]["iteration"]/2))
+        # else:
+        #     max_mean_thrpt = 0
+        #     min_mean_thrpt = 100000
+        #     sampling_ended = 0
+        
+        t2 = time.sleep()
+        time.sleep(1 - (t2-t1))
 
 
 workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["thread_limit"])]
