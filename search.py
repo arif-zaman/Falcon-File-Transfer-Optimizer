@@ -54,7 +54,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         cc = experiments.Xi[-1][0]
         if experiments.yi[-1]>0:
             if cc < max_thread:
-                max_thread = cc
+                max_thread = max(cc, 2)
                 search_space = get_search_space(configurations, max_thread)
                 experiments.space = search_space
         else:
