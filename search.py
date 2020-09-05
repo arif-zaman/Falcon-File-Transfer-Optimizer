@@ -31,13 +31,13 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         model_queue_size= limit_obs
     )
     
-    count = 1
-    experiments.run(func=black_box_function, n_iter=1)
-
-    while (experiments.yi[-1] != 10 ** 10):
+    count = 0
+    while True:
         count += 1
-        experiments.yi = experiments.yi[-limit_obs:]
-        experiments.Xi = experiments.Xi[-limit_obs:]
+
+        if len(experiments.yi) > limit_obs:
+            experiments.yi = experiments.yi[-limit_obs:]
+            experiments.Xi = experiments.Xi[-limit_obs:]
         
         if verbose:
             logger.info("Iteration {0} Starts ...".format(count))
@@ -51,14 +51,19 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 count, res.x, res.fun, np.round(t2-t1, 2)))
 
         cc = experiments.Xi[-1][0]
+        last_value = experiments.yi[-1]
+        if last_value == 10 ** 10:
+            logger.info("Optimizer Exits ...")
+            break
+
         reset = False
-        if experiments.yi[-1]>0:
-            if cc < max_thread:
-                max_thread = max(cc, 2)
-                reset = True
-        else:
-            if max_thread == cc:
-                max_thread = min(cc+3, configurations["thread"]["max"])
+        if (last_value > 0) and (cc < max_thread):
+            max_thread = max(cc, 2)
+            reset = True
+
+        if (last_value > 0) and (cc == max_thread):
+            max_thread = min(cc+5, configurations["thread"]["max"])
+            reset = True
         
         if reset:
             search_space = get_search_space(configurations, max_thread)
@@ -68,9 +73,6 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 acq_optimizer="lbfgs",
                 model_queue_size= limit_obs
             )
-            
-            count += 1
-            experiments.run(func=black_box_function, n_iter=1)
 
 
 def gp(configurations, black_box_function, logger, verbose=True):  
