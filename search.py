@@ -31,7 +31,9 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         model_queue_size= limit_obs
     )
     
-    count = 0
+    count = 1
+    experiments.run(func=black_box_function, n_iter=1)
+
     while (experiments.yi[-1] != 10 ** 10):
         count += 1
         experiments.yi = experiments.yi[-limit_obs:]
@@ -66,6 +68,9 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 acq_optimizer="lbfgs",
                 model_queue_size= limit_obs
             )
+            
+            count += 1
+            experiments.run(func=black_box_function, n_iter=1)
 
 
 def gp(configurations, black_box_function, logger, verbose=True):  
