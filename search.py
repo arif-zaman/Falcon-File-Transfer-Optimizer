@@ -6,13 +6,13 @@ import time
 
 def get_search_space(configurations, max_thread):
     search_space  = [
-        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(configurations["thread"]["min"], max_thread),
         Integer(1, configurations["chunk_limit"])
     ]
     
     if configurations["emulab_test"]:
         search_space  = [
-            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(configurations["thread"]["min"], max_thread),
             Integer(6, 7)
         ]
 
@@ -27,7 +27,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     experiments = Optimizer(
         dimensions=search_space,
         n_initial_points=1,
-        acq_optimizer="lbfgs",
+        # acq_optimizer="lbfgs",
         model_queue_size= limit_obs
     )
     
@@ -61,7 +61,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             max_thread = max(cc, 2)
             reset = True
 
-        if (last_value > 0) and (cc == max_thread):
+        if (last_value < 0) and (cc == max_thread):
             max_thread = min(cc+5, configurations["thread"]["max"])
             reset = True
         
