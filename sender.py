@@ -4,11 +4,10 @@ import numpy as np
 import time
 import warnings
 import logging as log
-# from sendfile import sendfile
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import  base_optimizer, gp, gbrt, dummy, brute_force, random_brute_search
+from search import  base_optimizer, dummy, brute_force
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -21,14 +20,6 @@ if configurations["thread_limit"] == -1:
 if configurations["chunk_limit"] == -1:
     configurations["chunk_limit"] = 21
     
-configurations["thread"] = {
-    "min": 1,
-    "max": configurations["thread_limit"],
-    "iteration": configurations["bayes"]["num_of_exp"],
-    "random_probe": configurations["bayes"]["initial_run"]
-}
-
-throughput_logs = []
 
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
@@ -38,15 +29,14 @@ else:
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
 emulab_test = False
-if configurations["emulab_test"] is not None:
+if "emulab_test" in configurations and configurations["emulab_test"] is not None:
     emulab_test = configurations["emulab_test"]
-else:
-    configurations["emulab_test"] = False
-    
+
+
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
-probe_again = False
+throughput_logs = []
 
 segments_sent = mp.Value("i", 0)
 segments_retransmitted = mp.Value("i", 0)
@@ -105,11 +95,9 @@ def worker(indx):
                 addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
-                    target = 10
-                    factor = 10
+                    target, factor = 10, 10
                     max_speed = (target * 1000 * 1000)/8
-                    second_target = int(max_speed/factor)
-                    second_data_count = 0
+                    second_target, second_data_count = int(max_speed/factor), 0
 
                 for i in range(indx, len(file_names), num_workers.value):
                     if process_status[indx] == 0:
@@ -129,7 +117,6 @@ def worker(indx):
                                 data_to_send = bytearray(buffer_size)
                                 sent = sock.send(data_to_send)
                             else:
-                                # sent = sendfile(sock.fileno(), file.fileno(), offset, chunk_size.value)
                                 sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
                                 # data = os.preadv(file,chunk_size.value,offset)
                                 
@@ -139,7 +126,6 @@ def worker(indx):
                             if emulab_test:
                                 second_data_count += sent
                                 if second_data_count >= second_target:
-                                    #log.info("took {0} ms to send data".format((time.time()-timer100ms)*1000))
                                     second_data_count = 0
                                     while timer100ms + (1/factor) > time.time():
                                         pass
@@ -179,10 +165,6 @@ def worker(indx):
             
             except socket.timeout as e:
                 pass
-                # log.error("Process: {0}, Error: {1}".format(indx, str(e)))
-                # duration = time.time() - start
-                # if (sample_phase.value == 1 and (duration > probing_time)):
-                #     process_status[indx] = 0
                 
             except Exception as e:
                 log.error("Process: {0}, Error: {1}".format(indx, str(e)))
@@ -195,14 +177,6 @@ def worker(indx):
 
 def get_buffer_size(unit):
     return (2 ** (unit-1)) * 1024
-
-
-def get_retransmitted_packet_count():
-    try:        
-        data = os.popen("netstat -s | grep segments").read().split()
-        return int(data[3]), int(data[7])
-    except:
-        return -1, -1
 
 
 def sample_transfer(params):
@@ -241,14 +215,13 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
-    while np.sum(process_status)>0:
-        pass 
+    # while np.sum(process_status)>0:
+    #     pass 
 
     return score_value
 
 
 def normal_transfer(params):
-    global probe_again
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
@@ -263,22 +236,9 @@ def normal_transfer(params):
     
     while (np.sum(process_status) > 0) and (kill_transfer.value == 0):
         pass
-        # if probe_again:
-        #     files_left = len(transfer_status) - np.sum(transfer_status)
-        #     if files_left <= np.sum(process_status):
-        #         log.info("Not much transfer is left. Further probing request ignored!")
-        #     else:
-        #         break
-            
-        # time.sleep(0.01)
 
-    # if probe_again and (len(transfer_status) > np.sum(transfer_status)):
-    #     run_transfer()
-    
     
 def run_transfer():
-    global probe_again
-    probe_again = False
     sample_phase.value = 1
 
     if configurations["method"].lower() == "random":
@@ -287,29 +247,24 @@ def run_transfer():
     elif configurations["method"].lower() == "brute":
         params = brute_force(configurations, sample_transfer, log)
     
-    elif configurations["method"].lower() == "random_brute":
-        params = random_brute_search(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
         chunk_size.value = get_buffer_size(params[1])
         
     else:
-        base_optimizer(configurations, sample_transfer, log)
+        params = base_optimizer(configurations, sample_transfer, log)
     
     sample_phase.value = 0
-    if kill_transfer.value == 0:
+    if kill_transfer.value == 0 and len(params) == 2:
         normal_transfer(params)
     
 
 def report_throughput(start_time):
-    global probe_again, throughput_logs
+    global throughput_logs
     previous_total = 0
     previous_time = 0
-    # max_mean_thrpt = 0
-    # sampling_ended = 0 
-    
-    time.sleep(0.9)
+
     while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 3)
@@ -322,48 +277,12 @@ def report_throughput(start_time):
         previous_time, previous_total = time_since_begining, total_bytes
         throughput_logs.append(curr_thrpt)
         log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_since_begining, curr_thrpt, thrpt))
-
-        # if sample_phase.value == 0:
-        #     if sampling_ended == 0:
-        #         sampling_ended = time_since_begining
-            
-        #     if (time_since_begining - sampling_ended > 10) and (np.mean(throughput_logs[-10:]) < 1.0):
-        #         log.info("Alas! Transfer is Stuck. Killing it!")
-        #         kill_transfer.value = 1
-                
-        #     if configurations["multiple_probe"] and (time_since_begining - sampling_ended > 10):
-        #         n = 10
-        #         last_n_sec_thrpt = np.mean(throughput_logs[-n:])
-        #         max_mean_thrpt = max(max_mean_thrpt, last_n_sec_thrpt)
-        #         min_mean_thrpt = min(min_mean_thrpt, last_n_sec_thrpt)
-        #         lower_limit = max_mean_thrpt * configurations["probing_threshold"]
-        #         upper_limit = min_mean_thrpt * (2-configurations["probing_threshold"])
-                
-        #         if last_n_sec_thrpt < lower_limit or last_n_sec_thrpt > upper_limit:
-        #             log.info("It Seems We Need to Probe Again!")
-        #             probe_again = True
-        #             # configurations["thread"]["min"] =max(int(num_workers.value/2), 1)
-        #             # configurations["thread"]["max"] =min (num_workers.value + int(num_workers.value/2), configurations["thread_limit"])
-                    
-        #             # if configurations["thread"]["max"] == configurations["thread"]["min"]:
-        #             #     probe_again = False
-                    
-        #             # if configurations["thread"]["max"] > configurations["thread"]["min"]:  
-        #             #     configurations["thread"]["iteration"] = min(configurations["thread"]["max"] - configurations["thread"]["min"], 8)
-        #             #     configurations["thread"]["random_probe"] = max(1, int(configurations["thread"]["iteration"]/2))
-        # else:
-        #     max_mean_thrpt = 0
-        #     min_mean_thrpt = 100000
-        #     sampling_ended = 0
-        
         t2 = time.time()
         time.sleep(1 - (t2-t1))
 
 
-workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["thread_limit"])]
-
-
 if __name__ == '__main__':
+    workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["thread_limit"])]
     for p in workers:
         p.daemon = True
         p.start()
@@ -371,7 +290,6 @@ if __name__ == '__main__':
     start = time.time()
     throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
     throughput_thread.start()
-        
     run_transfer()
     end = time.time()
             
