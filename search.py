@@ -4,19 +4,25 @@ import numpy as np
 import time
 
 
-def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs = 20
-    max_thread = configurations["thread"]["max"]  
+def get_search_space(configurations, max_thread):
     search_space  = [
-        Integer(configurations["thread"]["min"], max_thread),
+        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
         Integer(1, configurations["chunk_limit"])
     ]
     
     if configurations["emulab_test"]:
         search_space  = [
-            Integer(configurations["thread"]["min"], max_thread),
+            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
             Integer(6, 7)
         ]
+
+    return search_space
+
+
+def base_optimizer(configurations, black_box_function, logger, verbose=True):
+    limit_obs = 20
+    max_thread = configurations["thread"]["max"]  
+    search_space  = get_search_space(configurations, max_thread)
         
     experiments = Optimizer(
         dimensions=search_space,
@@ -49,13 +55,13 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         if experiments.yi[-1]>0:
             if cc < max_thread:
                 max_thread = cc
-                search_space[0] = Integer(configurations["thread"]["min"], max_thread)
+                search_space = get_search_space(configurations, max_thread)
+                experiments.space = search_space
         else:
-            if cc > max_thread:
-                max_thread = cc
-                search_space[0] = Integer(configurations["thread"]["min"], max_thread)
-                
-        experiments.space = search_space
+            if max_thread == cc:
+                max_thread = min(cc+3, configurations["thread"]["max"])
+                search_space = get_search_space(configurations, max_thread)
+                experiments.space = search_space
 
         # for i in range(len(experiments.Xi)-1):
         #     if experiments.Xi[i] == experiments.Xi[-1]:
