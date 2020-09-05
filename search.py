@@ -5,15 +5,16 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs = 20  
+    limit_obs = 20
+    max_thread = configurations["thread"]["max"]  
     search_space  = [
-        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+        Integer(configurations["thread"]["min"], max_thread),
         Integer(1, configurations["chunk_limit"])
     ]
     
     if configurations["emulab_test"]:
         search_space  = [
-            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
+            Integer(configurations["thread"]["min"], max_thread),
             Integer(6, 7)
         ]
         
@@ -43,6 +44,18 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         t1 = time.time()
         res = experiments.run(func=black_box_function, n_iter=1)
         t2 = time.time()
+
+        cc = experiments.Xi[-1][0]
+        if experiments.yi[-1]>0:
+            if cc < max_thread:
+                max_thread = cc
+                search_space[0] = Integer(configurations["thread"]["min"], max_thread)
+        else:
+            if cc > max_thread:
+                max_thread = cc
+                search_space[0] = Integer(configurations["thread"]["min"], max_thread)
+                
+        experiments.space = search_space
 
         # for i in range(len(experiments.Xi)-1):
         #     if experiments.Xi[i] == experiments.Xi[-1]:
