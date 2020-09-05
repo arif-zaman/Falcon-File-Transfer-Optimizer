@@ -41,17 +41,17 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             logger.info("Iteration {0} Starts ...".format(count))
 
         t1 = time.time()
-        experiments.run(func=black_box_function, n_iter=1)
+        res = experiments.run(func=black_box_function, n_iter=1)
         t2 = time.time()
 
-        for i in range(len(experiments.Xi)-1):
-            if experiments.Xi[i] == experiments.Xi[-1]:
-                experiments.yi[i] = experiments.yi[-1]
+        # for i in range(len(experiments.Xi)-1):
+        #     if experiments.Xi[i] == experiments.Xi[-1]:
+        #         experiments.yi[i] = experiments.yi[-1]
 
         if verbose:
-            indx = np.argmin(experiments.yi)
+            # indx = np.argmin(experiments.yi)
             logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
-                count, experiments.Xi[indx], experiments.yi[indx], np.round(t2-t1, 2)))
+                count, res.x, res.fun, np.round(t2-t1, 2)))
 
 
 
