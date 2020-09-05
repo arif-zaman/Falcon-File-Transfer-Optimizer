@@ -26,19 +26,12 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         
     experiments = Optimizer(
         dimensions=search_space,
-        n_initial_points=configurations["thread"]["random_probe"],
-        # acq_func="LCB",
-        # acq_func_kwargs={"kappa": 1.96},
+        n_initial_points=1,
         acq_optimizer="lbfgs",
         model_queue_size= limit_obs
     )
-
-    count = configurations["thread"]["random_probe"]
-    if verbose:
-        logger.info("Running Initial {0} Random Evaluations ...".format(count))
-
-    experiments.run(func=black_box_function, n_iter=count)
     
+    count = 0
     while (experiments.yi[-1] != 10 ** 10):
         count += 1
         experiments.yi = experiments.yi[-limit_obs:]
@@ -51,40 +44,33 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         res = experiments.run(func=black_box_function, n_iter=1)
         t2 = time.time()
 
-        cc = experiments.Xi[-1][0]
-        if experiments.yi[-1]>0:
-            if cc < max_thread:
-                max_thread = max(cc, 2)
-                search_space = get_search_space(configurations, max_thread)
-                experiments.space = search_space
-        else:
-            if max_thread == cc:
-                max_thread = min(cc+3, configurations["thread"]["max"])
-                search_space = get_search_space(configurations, max_thread)
-                experiments.space = search_space
-
-        # for i in range(len(experiments.Xi)-1):
-        #     if experiments.Xi[i] == experiments.Xi[-1]:
-        #         experiments.yi[i] = experiments.yi[-1]
-
         if verbose:
-            # indx = np.argmin(experiments.yi)
             logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
                 count, res.x, res.fun, np.round(t2-t1, 2)))
 
+        cc = experiments.Xi[-1][0]
+        reset = False
+        if experiments.yi[-1]>0:
+            if cc < max_thread:
+                max_thread = max(cc, 2)
+                reset = True
+        else:
+            if max_thread == cc:
+                max_thread = min(cc+3, configurations["thread"]["max"])
+        
+        if reset:
+            search_space = get_search_space(configurations, max_thread)
+            experiments = Optimizer(
+                dimensions=search_space,
+                n_initial_points=1,
+                acq_optimizer="lbfgs",
+                model_queue_size= limit_obs
+            )
 
 
 def gp(configurations, black_box_function, logger, verbose=True):  
-    search_space  = [
-        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-        Integer(1, configurations["chunk_limit"])
-    ]
-    
-    if configurations["emulab_test"]:
-        search_space  = [
-            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-            Integer(6, 7)
-        ]
+    max_thread = configurations["thread"]["max"]  
+    search_space  = get_search_space(configurations, max_thread)
         
     experiments = gp_minimize(
         func=black_box_function,
@@ -108,16 +94,8 @@ def gp(configurations, black_box_function, logger, verbose=True):
 
 
 def gbrt(configurations, black_box_function, logger, verbose=True):  
-    search_space  = [
-        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-        Integer(1, configurations["chunk_limit"])
-    ]
-    
-    if configurations["emulab_test"]:
-        search_space  = [
-            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-            Integer(6, 7)
-        ]
+    max_thread = configurations["thread"]["max"]  
+    search_space  = get_search_space(configurations, max_thread)
         
     experiments = gbrt_minimize(
         func=black_box_function,
@@ -163,16 +141,8 @@ def repetitive_probe(configurations, black_box_function, logger, verbose=True):
     if configurations["thread"]["min"] >= configurations["thread"]["max"]: 
         return [configurations["thread"]["min"]]
           
-    search_space  = [
-        Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-        Integer(1, configurations["chunk_limit"])
-    ]
-    
-    if configurations["emulab_test"]:
-        search_space  = [
-            Integer(configurations["thread"]["min"], configurations["thread"]["max"]),
-            Integer(6, 7)
-        ]
+    max_thread = configurations["thread"]["max"]  
+    search_space  = get_search_space(configurations, max_thread)
     
     experiments = gp_minimize(
         func=black_box_function,
