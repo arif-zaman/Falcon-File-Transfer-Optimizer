@@ -43,7 +43,7 @@ segments_retransmitted = mp.Value("i", 0)
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
-kill_transfer = mp.Value("i", 0)
+transfer_done = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
@@ -74,10 +74,10 @@ def tcp_stats(addr):
 
 
 def worker(indx):
-    while kill_transfer.value == 0:
+    while transfer_done.value == 0:
         if process_status[indx] == 0:
             if (len(transfer_status) == np.sum(transfer_status)):
-                kill_transfer.value = 1
+                transfer_done.value = 1
         else:
             while num_workers.value < 1:
                 pass
@@ -181,7 +181,7 @@ def get_buffer_size(unit):
 
 def sample_transfer(params):
     global throughput_logs
-    if kill_transfer.value == 1:
+    if transfer_done.value == 1:
         return 10 ** 10
         
     log.info("Sample Transfer -- Probing Parameters: {0}".format(params))
@@ -234,7 +234,7 @@ def normal_transfer(params):
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while (np.sum(process_status) > 0) and (kill_transfer.value == 0):
+    while (np.sum(process_status) > 0) and (transfer_done.value == 0):
         pass
 
     
@@ -256,7 +256,7 @@ def run_transfer():
         params = base_optimizer(configurations, sample_transfer, log)
     
     sample_phase.value = 0
-    if kill_transfer.value == 0 and len(params) == 2:
+    if transfer_done.value == 0 and len(params) == 2:
         normal_transfer(params)
     
 
@@ -265,7 +265,7 @@ def report_throughput(start_time):
     previous_total = 0
     previous_time = 0
 
-    while (len(transfer_status) > sum(transfer_status)) and (kill_transfer.value == 0):
+    while (len(transfer_status) > sum(transfer_status)) and (transfer_done.value == 0):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 3)
         total_bytes = np.sum(file_offsets)
