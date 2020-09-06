@@ -1,39 +1,32 @@
 from skopt.space import Integer
-from skopt import gp_minimize, dummy_minimize, gbrt_minimize, Optimizer
+from skopt import dummy_minimize as DM
+from skopt import Optimizer as BO
+from bayes_opt import BayesianOptimization
 import numpy as np
 import time
-
-
-def get_search_space(configurations, max_thread):
-    search_space  = [
-        Integer(1, max_thread),
-        Integer(1, configurations["chunk_limit"])
-    ]
-    
-    if configurations["emulab_test"]:
-        search_space  = [
-            Integer(1, max_thread),
-            Integer(6, 7)
-        ]
-
-    return search_space
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 100, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]  
-    search_space  = get_search_space(configurations, max_thread)
+    search_space  = [Integer(1, max_thread)]
+
+    if configurations["emulab_test"]:
+        search_space.append(Integer(6, 7))
+    else:
+        search_space.append(Integer(1, configurations["chunk_limit"]))
     
-    print(configurations)
-    optimizer = Optimizer(
+    params = []
+    optimizer = BO(
         dimensions=search_space,
         base_estimator="GP", #[GP, RF, ET, GBRT],
         acq_func="gp_hedge", # [LCB, EI, PI, gp_hedge]
         acq_optimizer="lbfgs", #[sampling, lbfgs, auto]
-        n_initial_points=configurations["bayes"]["initial_run"],
+        n_random_starts=configurations["bayes"]["initial_run"],
         model_queue_size= limit_obs,
         # acq_func_kwargs= {},
+        # acq_optimizer_kwargs={}
     )
     
     while True:
@@ -71,8 +64,8 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 reset = True
             
             if reset:
-                search_space = get_search_space(configurations, max_thread)
-                optimizer = Optimizer(
+                search_space[0] = [Integer(1, max_thread)]
+                optimizer = BO(
                     dimensions=search_space,
                     n_initial_points=1,
                     acq_optimizer="lbfgs",
@@ -81,9 +74,9 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
 
         if iterations == count:
             logger.info("Best parameters: {0} and score: {1}".format(res.x, res.fun))
-            return res.x
+            params = res.x
     
-    return []
+    return params
 
     
 def dummy(configurations, black_box_function, logger, verbose=True):    
@@ -92,7 +85,7 @@ def dummy(configurations, black_box_function, logger, verbose=True):
         Integer(1, configurations["chunk_limit"])
     ]
     
-    optimizer = dummy_minimize(
+    optimizer = DM(
         func=black_box_function,
         dimensions=search_space,
         n_calls=configurations["random"]["num_of_exp"],
@@ -129,6 +122,6 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     min_score_indx= np.argmin(score)
     cc = int(min_score_indx/max_chunk_size)
     cs = j if configurations["emulab_test"] else (min_score_indx % max_chunk_size)
-    params = [ccs[cc], cs+1]
+    params = [cc+1, cs+1]
     logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
     return params
