@@ -59,15 +59,15 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 max_thread = max(cc, 2)
                 reset = True
 
-            if (last_value < 0) and (cc == max_thread):
+            if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
                 max_thread = min(cc+5, configurations["thread_limit"])
                 reset = True
             
             if reset:
-                search_space[0] = [Integer(1, max_thread)]
+                search_space[0] = Integer(1, max_thread)
                 optimizer = BO(
                     dimensions=search_space,
-                    n_initial_points=1,
+                    n_initial_points=configurations["bayes"]["initial_run"],
                     acq_optimizer="lbfgs",
                     model_queue_size= limit_obs
                 )

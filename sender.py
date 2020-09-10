@@ -192,9 +192,11 @@ def sample_transfer(params):
     num_workers.value = params[0]
     chunk_size.value = get_buffer_size(params[1])
 
+    current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
         if i < params[0]:
-            process_status[i] = 1
+            if (i >= current_cc):
+                process_status[i] = 1
         else:
             process_status[i] = 0
 
@@ -215,8 +217,8 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
-    # while np.sum(process_status)>0:
-    #     pass 
+    while np.sum(process_status)>0:
+        pass 
 
     return score_value
 
