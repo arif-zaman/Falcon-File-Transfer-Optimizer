@@ -1,7 +1,6 @@
 from skopt.space import Integer
 from skopt import dummy_minimize as DM
 from skopt import Optimizer as BO
-from bayes_opt import BayesianOptimization
 import numpy as np
 import time
 
