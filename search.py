@@ -6,7 +6,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs, count = 100, 0
+    limit_obs, count = 15, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]  
     search_space  = [Integer(1, max_thread)]
@@ -21,7 +21,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         dimensions=search_space,
         base_estimator="GP", #[GP, RF, ET, GBRT],
         acq_func="gp_hedge", # [LCB, EI, PI, gp_hedge]
-        acq_optimizer="lbfgs", #[sampling, lbfgs, auto]
+        acq_optimizer="auto", #[sampling, lbfgs, auto]
         n_random_starts=configurations["bayes"]["initial_run"],
         model_queue_size= limit_obs,
         # acq_func_kwargs= {},

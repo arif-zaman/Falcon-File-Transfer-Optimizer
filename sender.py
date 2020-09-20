@@ -95,7 +95,7 @@ def worker(indx):
                 addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
-                    target, factor = 10, 10
+                    target, factor = 8, 8
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
