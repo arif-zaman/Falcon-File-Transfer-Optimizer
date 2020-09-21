@@ -115,11 +115,11 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
 
         elif phase == -1:
             if (current_value > previous_value):
-                params[0] = max(1, params[0]+1)
-                previous_value = current_value
-            else:
-                params[0] = min(max_thread, params[0]-1)
+                params[0] = min(max_thread, params[0]+1)
                 phase = 0
+            else:
+                params[0] = min(1, params[0]-1)
+                previous_value = current_value
             
         else:
             change = (current_value-previous_value)/previous_value
