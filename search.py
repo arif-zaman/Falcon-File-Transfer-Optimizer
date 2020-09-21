@@ -94,7 +94,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
             logger.info("Iteration {0} Starts ...".format(count))
 
         t1 = time.time()
-        current_value = black_box_function(params)
+        current_value = black_box_function(params) * (-1)
         t2 = time.time()
 
         if verbose:
