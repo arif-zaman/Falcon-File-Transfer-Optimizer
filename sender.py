@@ -7,7 +7,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import  base_optimizer, dummy, brute_force
+from search import  base_optimizer, dummy, brute_force, hill_climb
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -250,6 +250,8 @@ def run_transfer():
     elif configurations["method"].lower() == "brute":
         params = brute_force(configurations, sample_transfer, log)
     
+    elif configurations["method"].lower() == "hill_climb":
+        params = hill_climb(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
