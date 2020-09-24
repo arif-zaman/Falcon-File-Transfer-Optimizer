@@ -132,45 +132,61 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
     return params
 
 
-def gredient_ascent(configurations, black_box_function, logger, verbose=True):
-    max_thread = configurations["thread_limit"]
-    phase, count = 1, 0
-    current_value, previous_value = 0, 0
-    current_cc, previous_cc = 1, None
+def run_probe(current_cc, count, verbose, logger, black_box_function):
+    count += 1
+        
+    if verbose:
+        logger.info("Iteration {0} Starts ...".format(count))
+
+    t1 = time.time()
+    params = [current_cc, 7]
+    current_value = black_box_function(params) * (-1)
+    t2 = time.time()
+
+    if verbose:
+        logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
+            count, params, current_value, np.round(t2-t1, 2)))
     
+    return current_value
+
+
+def gredient_ascent(max_thread, black_box_function, logger, count, verbose=True):
+    values = []
+    ccs = [np.random.randint(1,max_thread)]
+
     while True:
         count += 1
-        
-        if verbose:
-            logger.info("Iteration {0} Starts ...".format(count))
+        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
 
-        t1 = time.time()
-        params = [current_cc, 7]
-        current_value = black_box_function(params) * (-1)
-        t2 = time.time()
-
-        if verbose:
-            logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
-                count, params, current_value, np.round(t2-t1, 2)))
-
-        if current_value == 10 ** 10:
+        if values[-1] == 10 ** 10:
             logger.info("Optimizer Exits ...")
-            break
+            return -1
         
-        if count == 1:
-            current_cc, previous_cc = 2, 1
-            previous_value = current_value
+        if len(ccs) == 1:
+            ccs.append(np.random.randint(1,max_thread))
         
         else:
-            distance = np.abs(previous_cc-current_cc)
-            if current_cc > previous_cc:
-                u2, u1 = current_value, previous_value
-            else:
-                pass
+            if (len(ccs)>4) and (ccs[-1] == ccs[-3]):
+                return ccs[-1]
 
-                
-                
-    return params
+            else:
+                distance = np.abs(ccs[-2] - ccs[-1])
+                delta = values[-1] - values[-2]
+                gredient = delta/distance
+
+                if gredient<0:
+                    ccs.append(ccs[-1] - np.random.randint(1,3))
+                else:
+                    ccs.append(ccs[-1] + np.random.randint(1,3))
+
+
+def apply_gredient_ascent(configurations, black_box_function, logger, verbose=True):
+    max_thread = configurations["thread_limit"]
+    count = 0
+
+    while True:
+        pass
+
 
     
 def dummy(configurations, black_box_function, logger, verbose=True):    
