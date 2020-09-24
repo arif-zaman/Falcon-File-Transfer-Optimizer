@@ -160,14 +160,14 @@ def gredient_ascent(max_thread, black_box_function, logger, count, verbose=True)
 
         if values[-1] == 10 ** 10:
             logger.info("Optimizer Exits ...")
-            return -1
+            break
         
         if len(ccs) == 1:
             ccs.append(np.random.randint(1,max_thread))
         
         else:
-            if (len(ccs)>4) and (ccs[-1] == ccs[-3]):
-                return ccs[-1]
+            if ccs[-1] == ccs[-2]:
+                ccs.append(ccs[-1] + (np.random.choice([-1,1])))
 
             else:
                 distance = np.abs(ccs[-2] - ccs[-1])
@@ -179,13 +179,7 @@ def gredient_ascent(max_thread, black_box_function, logger, count, verbose=True)
                 else:
                     ccs.append(ccs[-1] + np.random.randint(1,3))
 
-
-def apply_gredient_ascent(configurations, black_box_function, logger, verbose=True):
-    max_thread = configurations["thread_limit"]
-    count = 0
-
-    while True:
-        pass
+    return [ccs[-1], 7]
 
 
     
