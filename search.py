@@ -81,8 +81,6 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
 
 def hill_climb(configurations, black_box_function, logger, verbose=True):
     max_thread = configurations["thread_limit"]
-    iterations = configurations["bayes"]["num_of_exp"]  
-    
     params = [1,7]
     phase, count = 1, 0
     current_value, previous_value = 0, 0
@@ -130,6 +128,47 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
             elif change < -0.1:
                 phase = -1
                 params[0] = max(1, params[0]-1)
+                
+    return params
+
+
+def gredient_ascent(configurations, black_box_function, logger, verbose=True):
+    max_thread = configurations["thread_limit"]
+    phase, count = 1, 0
+    current_value, previous_value = 0, 0
+    current_cc, previous_cc = 1, None
+    
+    while True:
+        count += 1
+        
+        if verbose:
+            logger.info("Iteration {0} Starts ...".format(count))
+
+        t1 = time.time()
+        params = [current_cc, 7]
+        current_value = black_box_function(params) * (-1)
+        t2 = time.time()
+
+        if verbose:
+            logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
+                count, params, current_value, np.round(t2-t1, 2)))
+
+        if current_value == 10 ** 10:
+            logger.info("Optimizer Exits ...")
+            break
+        
+        if count == 1:
+            current_cc, previous_cc = 2, 1
+            previous_value = current_value
+        
+        else:
+            distance = np.abs(previous_cc-current_cc)
+            if current_cc > previous_cc:
+                u2, u1 = current_value, previous_value
+            else:
+                pass
+
+                
                 
     return params
 
