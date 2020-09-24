@@ -150,9 +150,10 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
     return current_value
 
 
-def gradient_ascent(max_thread, black_box_function, logger, count, verbose=True):
+def gradient_ascent(configurations, black_box_function, logger, verbose=True):
+    max_thread, count = configurations["thread_limit"], 0
     values = []
-    ccs = [np.random.randint(1,max_thread)]
+    ccs = [np.random.randint(1, max_thread)]
 
     while True:
         count += 1
