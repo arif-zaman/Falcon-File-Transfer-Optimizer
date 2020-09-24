@@ -254,7 +254,7 @@ def run_transfer():
         params = hill_climb(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "gradient":
-        params = hill_climb(configurations, sample_transfer, log)
+        params = gradient_ascent(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
