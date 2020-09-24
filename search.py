@@ -150,7 +150,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
     return current_value
 
 
-def gredient_ascent(max_thread, black_box_function, logger, count, verbose=True):
+def gradient_ascent(max_thread, black_box_function, logger, count, verbose=True):
     values = []
     ccs = [np.random.randint(1,max_thread)]
 
@@ -171,10 +171,15 @@ def gredient_ascent(max_thread, black_box_function, logger, count, verbose=True)
 
             else:
                 distance = np.abs(ccs[-2] - ccs[-1])
-                delta = values[-1] - values[-2]
-                gredient = delta/distance
+                
+                if ccs[-1] > ccs[-2]:
+                    delta = values[-1] - values[-2]
+                else:
+                    delta = values[-2] - values[-1]
+                    
+                gradient = delta/distance
 
-                if gredient<0:
+                if gradient<0:
                     ccs.append(ccs[-1] - np.random.randint(1,3))
                 else:
                     ccs.append(ccs[-1] + np.random.randint(1,3))
