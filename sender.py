@@ -7,7 +7,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config import configurations
-from search import  base_optimizer, dummy, brute_force, hill_climb
+from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -251,6 +251,9 @@ def run_transfer():
         params = brute_force(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "hill_climb":
+        params = hill_climb(configurations, sample_transfer, log)
+    
+    elif configurations["method"].lower() == "gradient":
         params = hill_climb(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
