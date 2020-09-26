@@ -33,7 +33,10 @@ def worker(sock):
 
 
 if __name__ == '__main__':
-    num_workers = mp.cpu_count() * 1
+    num_workers = configurations['limits']["thread"]
+    if num_workers == -1:
+        num_workers = mp.cpu_count()
+        
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
