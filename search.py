@@ -179,6 +179,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                     delta = values[-2] - values[-1]
                     
                 gradient = delta/distance
+                logger.info("Gredient: {}".format(gradient))
 
                 if gradient<0:
                     ccs.append(max(ccs[-1] - np.random.randint(1,3), 1))
