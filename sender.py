@@ -137,7 +137,7 @@ def worker(indx):
                                 sc, rc = tcp_stats(addr)
                                 segments_sent.value += sc
                                 segments_retransmitted.value += rc
-                                next_time_to_collect_stats += 2
+                                next_time_to_collect_stats += 1
 
                                 # t2 = time.time()
                                 # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
