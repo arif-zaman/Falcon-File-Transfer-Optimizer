@@ -70,7 +70,7 @@ def tcp_stats(addr):
         pass
     
     end = time.time()
-    log.info("Time taken to collect tcp stats: {0}ms".format(np.round(end-start)))
+    log.info("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
     
     return sent, retm
 
@@ -184,9 +184,9 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(probing_time-2.5)
+    time.sleep(probing_time-2)
     before_sc, before_rc = tcp_stats(RCVR_ADDR)
-    time.sleep(2.3)
+    time.sleep(2)
     after_sc, after_rc = tcp_stats(RCVR_ADDR)
 
     sc, rc = after_sc - before_sc, after_rc - before_rc  
