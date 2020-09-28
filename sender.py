@@ -38,8 +38,8 @@ probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 throughput_logs = []
 
-segments_sent = mp.Value("i", 0)
-segments_retransmitted = mp.Value("i", 0)
+# segments_sent = 0
+# segments_retransmitted = 0
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
@@ -49,6 +49,7 @@ transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 
 def tcp_stats(addr):
@@ -61,12 +62,12 @@ def tcp_stats(addr):
                 parse_data = data[i].split(" ")
                 for entry in parse_data:
                     if "data_segs_out" in entry:
-                        sent = int(entry.split(":")[-1])
+                        sent += int(entry.split(":")[-1])
                         
                     if "retrans" in entry:
-                        retm = int(entry.split("/")[-1])
+                        retm += int(entry.split("/")[-1])
                 
-                break
+                # break
     except:
         pass
     
@@ -83,16 +84,16 @@ def worker(indx):
                 pass
 
             # log.debug("Start - {0}".format(indx))
-            start = time.time()
-            next_time_to_collect_stats = start + 0.85
+            # start = time.time()
+            # next_time_to_collect_stats = start + 0.85
             
             try:
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
                 
-                own_addr = sock.getsockname()
-                addr = str(own_addr[0]) + ":" + str(own_addr[1])
+                # own_addr = sock.getsockname()
+                # addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
                     target, factor = 8, 8
@@ -133,22 +134,22 @@ def worker(indx):
                                     timer100ms = time.time()
                             
                             # t1 = time.time()
-                            if next_time_to_collect_stats < time.time(): 
-                                sc, rc = tcp_stats(addr)
-                                segments_sent.value += sc
-                                segments_retransmitted.value += rc
-                                next_time_to_collect_stats += 1
+                            # if next_time_to_collect_stats < time.time(): 
+                            #     sc, rc = tcp_stats(addr)
+                            #     segments_sent.value += sc
+                            #     segments_retransmitted.value += rc
+                            #     next_time_to_collect_stats += 1
 
                                 # t2 = time.time()
                                 # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
-                            duration = time.time() - start
-                            if (sample_phase.value == 1 and (duration > probing_time)):
-                                if sent == 0:
-                                    transfer_status[i] = 1
-                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            # duration = time.time() - start
+                            # if (sample_phase.value == 1 and (duration > probing_time)):
+                            #     if sent == 0:
+                            #         transfer_status[i] = 1
+                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                                process_status[indx] = 0
+                            #     process_status[indx] = 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -201,10 +202,10 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(probing_time-2)
-    before_sc, before_rc = segments_sent.value, segments_retransmitted.value
-    time.sleep(2)
-    after_sc, after_rc = segments_sent.value, segments_retransmitted.value
+    time.sleep(probing_time-2.5)
+    before_sc, before_rc = tcp_stats(RCVR_ADDR)
+    time.sleep(2.3)
+    after_sc, after_rc = tcp_stats(RCVR_ADDR)
 
     sc, rc = after_sc - before_sc, after_rc - before_rc  
     thrpt = np.mean(throughput_logs[-2:])
@@ -218,8 +219,8 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
-    while np.sum(process_status)>0:
-        pass 
+    # while np.sum(process_status)>0:
+    #     pass 
 
     return score_value
 
