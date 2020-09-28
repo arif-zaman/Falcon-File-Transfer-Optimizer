@@ -70,7 +70,7 @@ def tcp_stats(addr):
         pass
     
     end = time.time()
-    log.info("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
+    log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
     
     return sent, retm
 
@@ -85,7 +85,7 @@ def worker(indx):
                 pass
 
             # log.debug("Start - {0}".format(indx))
-            # start = time.time()
+            start = time.time()
             
             try:
                 sock = socket.socket()
@@ -130,13 +130,13 @@ def worker(indx):
                                     
                                     timer100ms = time.time()
 
-                            # duration = time.time() - start
-                            # if (sample_phase.value == 1 and (duration > probing_time)):
-                            #     if sent == 0:
-                            #         transfer_status[i] = 1
-                            #         log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
+                            duration = time.time() - start
+                            if (sample_phase.value == 1 and (duration > probing_time)):
+                                if sent == 0:
+                                    transfer_status[i] = 1
+                                    log.debug("finished {0}, {1}, {2}".format(indx, i, filename))
                                     
-                            #     process_status[indx] = 0
+                                process_status[indx] = 0
                             
                             if sent == 0:
                                 transfer_status[i] = 1
@@ -184,7 +184,7 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(probing_time-2)
+    time.sleep(probing_time-2.2)
     before_sc, before_rc = tcp_stats(RCVR_ADDR)
     time.sleep(2)
     after_sc, after_rc = tcp_stats(RCVR_ADDR)
@@ -201,8 +201,8 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
-    # while np.sum(process_status)>0:
-    #     pass 
+    while np.sum(process_status)>0:
+        pass 
 
     return score_value
 
