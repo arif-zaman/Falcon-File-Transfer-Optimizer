@@ -38,8 +38,6 @@ probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 throughput_logs = []
 
-# segments_sent = 0
-# segments_retransmitted = 0
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
 sample_phase = mp.Value("i", 0)
@@ -68,7 +66,6 @@ def tcp_stats(addr):
                     if "retrans" in entry:
                         retm += int(entry.split("/")[-1])
                 
-                # break
     except:
         pass
     
@@ -89,15 +86,11 @@ def worker(indx):
 
             # log.debug("Start - {0}".format(indx))
             # start = time.time()
-            # next_time_to_collect_stats = start + 0.85
             
             try:
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
-                
-                # own_addr = sock.getsockname()
-                # addr = str(own_addr[0]) + ":" + str(own_addr[1])
                 
                 if emulab_test:
                     target, factor = 8, 8
@@ -136,16 +129,6 @@ def worker(indx):
                                         pass
                                     
                                     timer100ms = time.time()
-                            
-                            # t1 = time.time()
-                            # if next_time_to_collect_stats < time.time(): 
-                            #     sc, rc = tcp_stats(addr)
-                            #     segments_sent.value += sc
-                            #     segments_retransmitted.value += rc
-                            #     next_time_to_collect_stats += 1
-
-                                # t2 = time.time()
-                                # log.info("Process: {0}, Time Taken: {1}ms".format(indx, np.round((t2-t1)*1000)))
 
                             # duration = time.time() - start
                             # if (sample_phase.value == 1 and (duration > probing_time)):
@@ -160,11 +143,6 @@ def worker(indx):
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
                 
-                # sc, rc = tcp_stats(addr)
-                # segments_sent.value += sc
-                # segments_retransmitted.value += rc
-                # lr = rc/sc if sc>0 else 0
-                # log.info("Process: {0}, Loss Rate: {1}".format(indx+1, np.round(lr, 4)))
                 process_status[indx] = 0
                 sock.close()
             
