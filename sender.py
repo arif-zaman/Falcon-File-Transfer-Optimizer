@@ -93,7 +93,7 @@ def worker(indx):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target, factor = 8, 8
+                    target, factor = 10, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
