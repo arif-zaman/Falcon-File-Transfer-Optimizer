@@ -153,7 +153,8 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
 def gradient_ascent(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
     values = []
-    ccs = [np.random.randint(1, max_thread)]
+    ccs = [1]
+    theta = 0
 
     while True:
         count += 1
@@ -164,7 +165,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             break
         
         if len(ccs) == 1:
-            ccs.append(np.random.randint(1,max_thread))
+            ccs.append(2)
         
         else:
             if ccs[-1] == ccs[-2]:
@@ -182,9 +183,19 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                 logger.info("Gredient: {}".format(gradient))
 
                 if gradient<0:
-                    ccs.append(max(ccs[-1] - np.random.randint(1,3), 1))
+                    if theta <= 0:
+                        theta -= 1
+                    else:
+                        theta = -1
+                
                 else:
-                    ccs.append(min(ccs[-1] + np.random.randint(1,3), max_thread))
+                    if theta >= 0:
+                        theta += 1
+                    else:
+                        theta = 1
+                        
+
+                ccs.append(min(ccs[-1] + (theta * np.random.randint(1,2)), max_thread))
 
     return [ccs[-1], 7]
 
