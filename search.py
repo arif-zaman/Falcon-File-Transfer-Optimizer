@@ -46,30 +46,30 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
                 count, res.x, res.fun, np.round(t2-t1, 2)))
 
-        cc = optimizer.Xi[-1][0]
         last_value = optimizer.yi[-1]
         if last_value == 10 ** 10:
             logger.info("Optimizer Exits ...")
             break
         
-        if iterations < 1:
-            reset = False
-            if (last_value > 0) and (cc < max_thread):
-                max_thread = max(cc, 2)
-                reset = True
+        # cc = optimizer.Xi[-1][0]
+        # if iterations < 1:
+        #     reset = False
+        #     if (last_value > 0) and (cc < max_thread):
+        #         max_thread = max(cc, 2)
+        #         reset = True
 
-            if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
-                max_thread = min(cc+5, configurations["thread_limit"])
-                reset = True
+        #     if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
+        #         max_thread = min(cc+5, configurations["thread_limit"])
+        #         reset = True
             
-            if reset:
-                search_space[0] = Integer(1, max_thread)
-                optimizer = BO(
-                    dimensions=search_space,
-                    n_initial_points=configurations["bayes"]["initial_run"],
-                    acq_optimizer="lbfgs",
-                    model_queue_size= limit_obs
-                )
+        #     if reset:
+        #         search_space[0] = Integer(1, max_thread)
+        #         optimizer = BO(
+        #             dimensions=search_space,
+        #             n_initial_points=configurations["bayes"]["initial_run"],
+        #             acq_optimizer="lbfgs",
+        #             model_queue_size= limit_obs
+        #         )
 
         if iterations == count:
             logger.info("Best parameters: {0} and score: {1}".format(res.x, res.fun))
