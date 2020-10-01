@@ -173,7 +173,11 @@ def sample_transfer(params):
         log.info("Effective Concurrency: {0}".format(num_workers.value))
     
     num_workers.value = params[0]
-    chunk_size.value = get_buffer_size(params[1])
+    
+    if len(params) > 1:
+        chunk_size.value = get_buffer_size(params[1])
+    else:
+        chunk_size.value = get_buffer_size(7) 
 
     current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
@@ -209,7 +213,11 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     num_workers.value = params[0]
-    chunk_size.value = get_buffer_size(params[1])
+    if len(params) > 1:
+        chunk_size.value = get_buffer_size(params[1])
+    else:
+        chunk_size.value = get_buffer_size(7) 
+        
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
     files_left = len(transfer_status) - np.sum(transfer_status)

@@ -11,10 +11,10 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     iterations = configurations["bayes"]["num_of_exp"]  
     search_space  = [Integer(1, max_thread)]
 
-    if configurations["emulab_test"]:
-        search_space.append(Integer(6, 7))
-    else:
-        search_space.append(Integer(1, configurations["chunk_limit"]))
+    # if configurations["emulab_test"]:
+    #     search_space.append(Integer(6, 7))
+    # else:
+    #     search_space.append(Integer(1, configurations["chunk_limit"]))
     
     params = []
     optimizer = BO(
@@ -197,7 +197,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
 
                 ccs.append(min(ccs[-1] + (theta * np.random.randint(1,2)), max_thread))
 
-    return [ccs[-1], 7]
+    return [ccs[-1]]
 
 
     
