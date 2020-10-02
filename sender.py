@@ -195,13 +195,13 @@ def sample_transfer(params):
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
     sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
-    log.info("SC: {0}, RC: {1}, SQ: {2}".format(sc, rc, sq))  
+    log.info("SC: {0}, RC: {1}, SQ: {2}, SQ_rate: {3}".format(sc, rc, sq, (np.log2(sq)-15)/100))  
     thrpt = np.mean(throughput_logs[-2:])
     lr, C = 0, int(configurations["C"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    score_value = thrpt * (1 - C * ((1/(1-lr))-1)) 
+    score_value = thrpt * (1 - C * ((1/(1-lr))-1) * ((np.log2(sq)-15)/100)) 
     score_value = np.round(score_value * (-1), 4)
     
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
