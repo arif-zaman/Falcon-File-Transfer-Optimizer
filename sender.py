@@ -195,6 +195,9 @@ def sample_transfer(params):
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
     sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
+    if sq < 2 ** 15:
+        sq = 2 ** 15
+        
     log.info("SC: {0}, RC: {1}, SQ: {2}, SQ_rate: {3}".format(sc, rc, sq, (np.log2(sq)-15)/100))  
     thrpt = np.mean(throughput_logs[-2:])
     lr, C = 0, int(configurations["C"])
