@@ -52,12 +52,13 @@ RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 def tcp_stats(addr):
     start = time.time()
-    sent, retm = 0, 0
+    sent, retm, sq = 0, 0, 0
     try:
         data = os.popen("ss -ti").read().split("\n")
 
         for i in range(1,len(data)):
             if addr in data[i-1]:
+                sq += int([i for i in data[i-1].split(" ") if i][2])
                 parse_data = data[i].split(" ")
                 for entry in parse_data:
                     if "data_segs_out" in entry:
@@ -72,6 +73,7 @@ def tcp_stats(addr):
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
     
+    log.info("Send-Q: {0}".format(sq))
     return sent, retm
 
 
