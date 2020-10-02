@@ -72,9 +72,8 @@ def tcp_stats(addr):
     
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
-    
-    log.info("Send-Q: {0}".format(sq))
-    return sent, retm
+    log.debug("Send-Q: {0}".format(sq))
+    return sent, retm, sq
 
 
 def worker(indx):
@@ -191,11 +190,12 @@ def sample_transfer(params):
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
     time.sleep(probing_time-2.2)
-    before_sc, before_rc = tcp_stats(RCVR_ADDR)
+    before_sc, before_rc, before_sq = tcp_stats(RCVR_ADDR)
     time.sleep(2)
-    after_sc, after_rc = tcp_stats(RCVR_ADDR)
+    after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
-    sc, rc = after_sc - before_sc, after_rc - before_rc  
+    sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
+    log.info("SC: {0}, RC: {1}, SQ: {2}".format(sc, rc, sq))  
     thrpt = np.mean(throughput_logs[-2:])
     lr, C = 0, int(configurations["C"])
     if sc != 0:
