@@ -194,7 +194,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                     else:
                         theta = 1
                         
-                gradient_change = np.abs(gradient/values[-2])/100
+                gradient_change = np.abs(gradient/values[-2])
                 logger.info("Gredient Change: {}".format(gradient_change))
                 next_cc = ccs[-1] + int(theta * np.ceil(ccs[-1] * gradient_change))
             
