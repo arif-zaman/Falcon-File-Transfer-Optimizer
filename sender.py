@@ -18,10 +18,6 @@ configurations["chunk_limit"] = configurations['limits']["bsize"]
 if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
-# if configurations["chunk_limit"] == -1:
-#     configurations["chunk_limit"] = 21
-    
-
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
     log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.DEBUG)
@@ -161,7 +157,8 @@ def worker(indx):
     return True 
 
 
-def get_buffer_size(unit):
+def get_chunk_size(unit):
+    unit = max(unit, 0)
     return (2 ** unit) * 1024
 
 
@@ -176,7 +173,7 @@ def sample_transfer(params):
         log.info("Effective Concurrency: {0}".format(num_workers.value))
     
     num_workers.value = params[0]
-    chunk_size.value = get_buffer_size(configurations["chunk_limit"])
+    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
 
     current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
@@ -217,7 +214,7 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     num_workers.value = params[0]
-    chunk_size.value = get_buffer_size(configurations["chunk_limit"])
+    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
         
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
@@ -250,7 +247,7 @@ def run_transfer():
     
     elif configurations["method"].lower() == "probe":
         params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
-        chunk_size.value = get_buffer_size(params[1])
+        chunk_size.value = get_chunk_size(params[1])
         
     else:
         params = base_optimizer(configurations, sample_transfer, log)

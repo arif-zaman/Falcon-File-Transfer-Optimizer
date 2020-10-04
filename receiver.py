@@ -6,11 +6,18 @@ import time
 from config import configurations
 
 chunk_size = mp.Value("i", 0)
+root = configurations["data_dir"]["receiver"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+
 if configurations["loglevel"] == "debug":
     logger = mp.log_to_stderr(logging.DEBUG)
 else:
     logger = mp.log_to_stderr(logging.INFO)
+
+
+def get_chunk_size(unit):
+    unit = max(unit, 0)
+    return (2 ** unit) * 1024
 
 
 def worker(sock):
@@ -34,13 +41,13 @@ def worker(sock):
 
 if __name__ == '__main__':
     num_workers = configurations['limits']["thread"]
+    chunk_size.value = get_chunk_size(configurations['limits']["bsize"])
     if num_workers == -1:
         num_workers = mp.cpu_count()
         
     sock = socket.socket()
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
-    chunk_size.value = 1024 * 1024 * 1024
 
     workers = [mp.Process(target=worker, args=(sock,)) for i in range(num_workers)]
     for p in workers:
