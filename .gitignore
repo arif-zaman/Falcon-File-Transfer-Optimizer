@@ -106,3 +106,4 @@ homework1/
 **/*.DS_Store
 config.py
 data/
+.vscode

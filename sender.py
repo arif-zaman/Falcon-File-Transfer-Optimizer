@@ -6,6 +6,7 @@ import warnings
 import logging as log
 import multiprocessing as mp
 from threading import Thread
+from sendfile import sendfile
 from config import configurations
 from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent
 
@@ -17,8 +18,8 @@ configurations["chunk_limit"] = configurations['limits']["bsize"]
 if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
-if configurations["chunk_limit"] == -1:
-    configurations["chunk_limit"] = 21
+# if configurations["chunk_limit"] == -1:
+#     configurations["chunk_limit"] = 21
     
 
 FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
@@ -116,7 +117,8 @@ def worker(indx):
                                 data_to_send = bytearray(buffer_size)
                                 sent = sock.send(data_to_send)
                             else:
-                                sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                                # sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                                sent = sendfile(sock.fileno(), file.fileno(), int(offset), int(chunk_size.value))
                                 # data = os.preadv(file,chunk_size.value,offset)
                                 
                             offset += sent
@@ -160,7 +162,7 @@ def worker(indx):
 
 
 def get_buffer_size(unit):
-    return (2 ** (unit-1)) * 1024
+    return (2 ** unit) * 1024
 
 
 def sample_transfer(params):
@@ -174,11 +176,7 @@ def sample_transfer(params):
         log.info("Effective Concurrency: {0}".format(num_workers.value))
     
     num_workers.value = params[0]
-    
-    if len(params) > 1:
-        chunk_size.value = get_buffer_size(params[1])
-    else:
-        chunk_size.value = get_buffer_size(7) 
+    chunk_size.value = get_buffer_size(configurations["chunk_limit"])
 
     current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
@@ -219,10 +217,7 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     num_workers.value = params[0]
-    if len(params) > 1:
-        chunk_size.value = get_buffer_size(params[1])
-    else:
-        chunk_size.value = get_buffer_size(7) 
+    chunk_size.value = get_buffer_size(configurations["chunk_limit"])
         
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     

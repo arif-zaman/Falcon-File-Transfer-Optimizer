@@ -169,7 +169,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
         
         else:
             if ccs[-1] == ccs[-2]:
-                ccs.append(ccs[-1] + (np.random.choice([-1,1])))
+                next_cc = ccs[-1] + (np.random.choice([-1,1]))
 
             else:
                 distance = np.abs(ccs[-2] - ccs[-1])
@@ -180,7 +180,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                     delta = values[-2] - values[-1]
                     
                 gradient = delta/distance
-                logger.info("Gredient: {}".format(gradient))
+                # logger.info("Gredient: {}".format(gradient))
 
                 if gradient<0:
                     if theta <= 0:
@@ -194,8 +194,16 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                     else:
                         theta = 1
                         
-
-                ccs.append(min(ccs[-1] + (theta * np.random.randint(1,2)), max_thread))
+                gradient_change = np.abs(gradient/values[-2])/100
+                next_cc = ccs[-1] + int(np.ceil(ccs[-1] * theta * gradient_change))
+            
+            if next_cc < 1:
+                next_cc = 1
+                
+            if next_cc > max_thread:
+                next_cc == max_thread
+                
+            ccs.append(next_cc)
 
     return [ccs[-1]]
 
@@ -203,8 +211,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
     
 def dummy(configurations, black_box_function, logger, verbose=True):    
     search_space  = [
-        Integer(1, configurations["thread_limit"]),
-        Integer(1, configurations["chunk_limit"])
+        Integer(1, configurations["thread_limit"])
     ]
     
     optimizer = DM(
@@ -224,26 +231,11 @@ def dummy(configurations, black_box_function, logger, verbose=True):
 def brute_force(configurations, black_box_function, logger, verbose=True):
     score = []
     max_thread = configurations["thread_limit"]
-    max_chunk_size = configurations["chunk_limit"]
     
-    if not configurations["emulab_test"]:
-        for i in range(max_thread):
-            for j in range(max_chunk_size):
-                params = [i+1, j+1]
-                score.append(black_box_function(params))
+    for i in range(1, max_thread+1):
+        score.append(black_box_function([i]))
     
-    else:
-        ccs = [i+1 for i in range(max_thread)]
-        # np.random.shuffle(ccs)
-        max_chunk_size = 1
-        j = 6
-        for i in range(max_thread):
-            params = [ccs[i], j+1]
-            score.append(black_box_function(params))
     
-    min_score_indx= np.argmin(score)
-    cc = int(min_score_indx/max_chunk_size)
-    cs = j if configurations["emulab_test"] else (min_score_indx % max_chunk_size)
-    params = [cc+1, cs+1]
-    logger.info("Best parameters: {0} and score: {1}".format(params, score[min_score_indx]))
-    return params
+    cc = np.argmin(score) + 1
+    logger.info("Best parameters: {0} and score: {1}".format([cc], score[cc-1]))
+    return [cc]
