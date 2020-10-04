@@ -196,7 +196,14 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                         
                 gradient_change = np.abs(gradient/values[-2])
                 logger.info("Gredient Change: {}".format(gradient_change))
-                next_cc = ccs[-1] + int(theta * np.ceil(ccs[-1] * gradient_change))
+                update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
+                if update_cc < -10:
+                    update_cc = -10
+                
+                if update_cc > 10:
+                    update_cc = 10
+                    
+                next_cc = ccs[-1] + update_cc
             
             if next_cc < 1:
                 next_cc = 1
