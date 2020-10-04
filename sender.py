@@ -197,7 +197,7 @@ def sample_transfer(params):
     if sq < 2 ** base:
         sq = 2 ** base
         
-    log.info("SC: {0}, RC: {1}, SQ: {2}, SQ_rate: {3}".format(sc, rc, sq, (np.log2(sq)-15)/100))  
+    log.info("SC: {0}, RC: {1}".format(sc, rc))  
     thrpt = np.mean(throughput_logs[-2:])
     lr, C = 0, int(configurations["C"])
     if sc != 0:
@@ -206,8 +206,8 @@ def sample_transfer(params):
     score_value = thrpt * (1 - C * (((1/(1-lr))-1) + ((np.log2(sq)-base)/100))) 
     score_value = np.round(score_value * (-1), 4)
     
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, Score: {2}".format(
-        np.round(thrpt), np.round(lr*100, 2), score_value))
+    log.info("Probing -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
+        np.round(thrpt), np.round(lr*100, 2), (np.log2(sq)-base)/100, score_value))
 
     # while np.sum(process_status)>0:
     #     pass 
