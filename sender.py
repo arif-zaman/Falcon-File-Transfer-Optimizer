@@ -341,10 +341,10 @@ if __name__ == '__main__':
     update_chunk_size(get_chunk_size(configurations["chunk_limit"]))
     
     with ThreadPoolExecutor(max_workers=configurations["thread_limit"]+2) as executor:
-        futures = [executor.submit(worker, indx) for indx in range(configurations["chunk_limit"])]
+        futures = [executor.submit(worker, (indx)) for indx in range(configurations["chunk_limit"])]
     
         start = time.time()
-        futures.append(executor.submit(report_throughput, start))
+        futures.append(executor.submit(report_throughput, (start)))
         run_transfer()
         end = time.time()
             
