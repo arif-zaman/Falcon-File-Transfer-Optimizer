@@ -6,7 +6,7 @@ import warnings
 import logging as log
 import multiprocessing as mp
 from threading import Thread
-from sendfile import sendfile
+# from sendfile import sendfile
 from config import configurations
 from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent
 
@@ -41,10 +41,15 @@ sample_phase = mp.Value("i", 0)
 transfer_done = mp.Value("i", 0)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_status = mp.Array("i", [0 for i in range(len(file_names))])
+active_files = mp.Array("i", [0 for i in range(len(file_names))])
 file_offsets = mp.Array("d", [0.0 for i in range(len(file_names))])
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
+
+
+def allocate_file():
+    pass
 
 
 def tcp_stats(addr):
@@ -73,10 +78,11 @@ def tcp_stats(addr):
     return sent, retm, sq
 
 
-def worker(indx):
+def worker(indx, l):
+    file_count = len(active_files)
     while transfer_done.value == 0:
         if process_status[indx] == 0:
-            if (len(transfer_status) == np.sum(transfer_status)):
+            if (file_count == np.sum(transfer_status)):
                 transfer_done.value = 1
         else:
             while num_workers.value < 1:
@@ -95,8 +101,19 @@ def worker(indx):
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
-                for i in range(indx, len(file_names), num_workers.value):
-                    if process_status[indx] == 0:
+                # for i in range(indx, len(file_names), num_workers.value):
+                while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
+                    l.acquire()
+                    i = -1
+                    for j in range(file_count):
+                        if active_files[j] == 0:
+                            active_files[j] == 1
+                            i = j
+                            break
+                    l.release()
+                    
+                    if i == -1:
+                        process_status[indx] = 0
                         break
                     
                     if transfer_status[i] == 0:
@@ -142,6 +159,7 @@ def worker(indx):
                                 log.debug("finished {0}, {1}, {2}".format(indx, i, filename)) 
                                 break
                 
+                active_files[i] = transfer_status[i]
                 process_status[indx] = 0
                 sock.close()
             
@@ -279,7 +297,8 @@ def report_throughput(start_time):
 
 
 if __name__ == '__main__':
-    workers = [mp.Process(target=worker, args=(i,)) for i in range(configurations["thread_limit"])]
+    lock = mp.Lock()
+    workers = [mp.Process(target=worker, args=(i,lock)) for i in range(configurations["thread_limit"])]
     for p in workers:
         p.daemon = True
         p.start()
