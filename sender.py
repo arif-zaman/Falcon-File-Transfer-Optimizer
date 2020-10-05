@@ -49,58 +49,59 @@ RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 def update_chunk_size(value):
     global chunk_size
-    with lock:
-        chunk_size = value
+    # with lock:
+    chunk_size = value
 
 
 def update_num_workers(value):
     global num_workers
-    with lock:
-        num_workers = value
+    # with lock:
+    num_workers = value
 
 
 def update_sample_phase(value):
     global sample_phase
-    with lock:
-        sample_phase = value
+    # with lock:
+    sample_phase = value
         
 
 def update_transfer_done(value):
     global transfer_done
-    with lock:
-        transfer_done = value
+    # with lock:
+    transfer_done = value
 
 
 def update_process_status(indx, value):
     global process_status
-    with lock:
-        process_status[indx] = value
+    # with lock:
+    process_status[indx] = value
         
 
 def update_transfer_complete(indx, value):
     global transfer_complete
-    with lock:
-        transfer_complete[indx] = value
+    # with lock:
+    transfer_complete[indx] = value
 
 
 def update_transfer_running(indx, value):
     global transfer_running
-    with lock:
-        transfer_running[indx] = value
+    # with lock:
+    transfer_running[indx] = value
         
 
 def update_file_offsets(indx, value):
-    with lock:
-        file_offsets[indx] = value
+    global file_offsets
+    # with lock:
+    file_offsets[indx] = value
 
 
 def get_a_file_id():
     global file_count, transfer_running
     file_id = -1
-    with lock:
+    if True:
         for i in range(file_count):
             if transfer_running[i] == 0:
-                update_transfer_running(i, 0)
+                update_transfer_running(i, 1)
                 i = file_id
                 break
     
@@ -340,16 +341,18 @@ def report_throughput(start_time):
 if __name__ == '__main__':
     update_chunk_size(get_chunk_size(configurations["chunk_limit"]))
     
-    with ThreadPoolExecutor(max_workers=configurations["thread_limit"]+2) as executor:
-        futures = [executor.submit(worker, (indx)) for indx in range(configurations["chunk_limit"])]
+    workers = [Thread(target=worker, args=(indx,)) for indx in range(configurations["chunk_limit"])]
+    for t in workers:
+        t.start()
     
-        start = time.time()
-        futures.append(executor.submit(report_throughput, (start)))
-        run_transfer()
-        end = time.time()
+    start = time.time()
+    reporting_thread = Thread(target=report_throughput, args=(start,))
+    reporting_thread.start()
+    run_transfer()
+    end = time.time()
             
-        time_since_begining = np.round(end-start, 3)
-        total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
-        thrpt = np.round((total*8*1024)/time_since_begining,2)
-        log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-            total, time_since_begining, thrpt))
+    time_since_begining = np.round(end-start, 3)
+    total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
+    thrpt = np.round((total*8*1024)/time_since_begining,2)
+    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+        total, time_since_begining, thrpt))
