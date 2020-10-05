@@ -100,7 +100,7 @@ def worker(indx, l):
                 # for i in range(indx, len(file_names), num_workers.value):
                 while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
                     i = -1
-                    log.debug("sum: {}".format(np.sum(transfer_status)))
+                    log.info("sum: {}".format(sum(transfer_status)))
                     if np.sum(transfer_status) == 0:
                         i = indx
                     else:
