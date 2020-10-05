@@ -246,14 +246,13 @@ def run_transfer():
         params = gradient_ascent(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
-        params = [configurations["probe_config"]["thread"], configurations["probe_config"]["bsize"]]
-        chunk_size.value = get_chunk_size(params[1])
+        params = [configurations["probe_config"]["thread"]]
         
     else:
         params = base_optimizer(configurations, sample_transfer, log)
     
     sample_phase.value = 0
-    if transfer_done.value == 0 and len(params) == 2:
+    if transfer_done.value == 0:
         normal_transfer(params)
     
 
@@ -264,7 +263,7 @@ def report_throughput(start_time):
 
     while (len(transfer_status) > sum(transfer_status)) and (transfer_done.value == 0):
         t1 = time.time()
-        time_since_begining = np.round(t1-start_time, 3)
+        time_since_begining = np.round(t1-start_time, 1)
         total_bytes = np.sum(file_offsets)
         thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
         
@@ -273,9 +272,10 @@ def report_throughput(start_time):
         curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
         previous_time, previous_total = time_since_begining, total_bytes
         throughput_logs.append(curr_thrpt)
-        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(time_since_begining, curr_thrpt, thrpt))
+        log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
+            time_since_begining, curr_thrpt, thrpt))
         t2 = time.time()
-        time.sleep(1 - (t2-t1))
+        time.sleep(max(0, 1 - (t2-t1)))
 
 
 if __name__ == '__main__':
@@ -293,7 +293,8 @@ if __name__ == '__main__':
     time_since_begining = np.round(end-start, 3)
     total = np.round(np.sum(file_offsets) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_since_begining,2)
-    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(total, time_since_begining, thrpt))
+    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+        total, time_since_begining, thrpt))
     
     for p in workers:
         if p.is_alive():

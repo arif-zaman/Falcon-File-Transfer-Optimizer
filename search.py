@@ -6,7 +6,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs, count = 15, 0
+    limit_obs, count = 25, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]  
     search_space  = [Integer(1, max_thread)]
@@ -81,7 +81,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
 
 def hill_climb(configurations, black_box_function, logger, verbose=True):
     max_thread = configurations["thread_limit"]
-    params = [1,7]
+    params = [1]
     phase, count = 1, 0
     current_value, previous_value = 0, 0
     
