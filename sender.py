@@ -297,6 +297,7 @@ def report_throughput(start_time):
 
 
 if __name__ == '__main__':
+    print(file_names)
     lock = mp.Lock()
     workers = [mp.Process(target=worker, args=(i,lock)) for i in range(configurations["thread_limit"])]
     for p in workers:
