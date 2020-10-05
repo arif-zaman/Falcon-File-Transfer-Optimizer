@@ -104,7 +104,9 @@ def worker(indx, l):
                 # for i in range(indx, len(file_names), num_workers.value):
                 while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
                     i = -1
-                    with l:
+                    if np.sum(transfer_status) == 0:
+                        i = indx
+                    else:
                         for j in range(file_count):
                             if active_files[j] == 0:
                                 active_files[j] == 1
