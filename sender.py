@@ -97,21 +97,23 @@ def worker(indx, l):
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
-                # for i in range(indx, len(file_names), num_workers.value):
-                while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
-                    i = -1
-                    log.info("sum: {}".format(sum(transfer_status)))
-                    if np.sum(transfer_status) == 0:
-                        i = indx
-                    else:
-                        for j in range(file_count):
-                            if active_files[j] == 0:
-                                active_files[j] == 1
-                                i = j
-                                break
+                for i in range(indx, len(file_names), num_workers.value):
+                # while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
+                #     i = -1
+                #     if np.sum(transfer_status) == 0:
+                #         i = indx
+                #     else:
+                #         for j in range(file_count):
+                #             if active_files[j] == 0:
+                #                 active_files[j] == 1
+                #                 i = j
+                #                 break
                     
-                    if i == -1:
-                        process_status[indx] = 0
+                #     if i == -1:
+                #         process_status[indx] = 0
+                #         break
+                    
+                    if process_status[indx] == 0:
                         break
                     
                     if transfer_status[i] == 0:
