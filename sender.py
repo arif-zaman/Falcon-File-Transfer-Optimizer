@@ -113,8 +113,8 @@ def worker(indx):
                                 data_to_send = bytearray(buffer_size)
                                 sent = sock.send(data_to_send)
                             else:
-                                # sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
-                                sent = sendfile(sock.fileno(), file.fileno(), int(offset), int(chunk_size.value))
+                                sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                                # sent = sendfile(sock.fileno(), file.fileno(), int(offset), int(chunk_size.value))
                                 # data = os.preadv(file,chunk_size.value,offset)
                                 
                             offset += sent
