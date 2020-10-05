@@ -48,10 +48,6 @@ HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["por
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 
-def allocate_file():
-    pass
-
-
 def tcp_stats(addr):
     start = time.time()
     sent, retm, sq = 0, 0, 0
@@ -104,6 +100,7 @@ def worker(indx, l):
                 # for i in range(indx, len(file_names), num_workers.value):
                 while (np.sum(active_files) < file_count) and (process_status[indx] == 1):
                     i = -1
+                    log.debug("sum: {}".format(np.sum(transfer_status)))
                     if np.sum(transfer_status) == 0:
                         i = indx
                     else:
