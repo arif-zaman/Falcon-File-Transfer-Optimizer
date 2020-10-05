@@ -208,7 +208,7 @@ def sample_transfer(params):
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
     sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
-    base = 16
+    base = 20
     if sq < 2 ** base:
         sq = 2 ** base
         
