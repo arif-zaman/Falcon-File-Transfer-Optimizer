@@ -30,11 +30,12 @@ if "emulab_test" in configurations and configurations["emulab_test"] is not None
     emulab_test = configurations["emulab_test"]
 
 
+manager = mp.Manager()
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 file_count = len(file_names)
-throughput_logs = []
+throughput_logs = manager.list()
 
 chunk_size = mp.Value("i", 0)
 num_workers = mp.Value("i", 0)
@@ -195,14 +196,11 @@ def sample_transfer(params):
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) + (C2 *((np.log2(sq)-base)/100))) 
+    score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) - (C2 *((np.log2(sq)-base)/100))) 
     score_value = np.round(score_value * (-1), 4)
     
     log.info("Probing -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
         np.round(thrpt), np.round(lr*100, 2), (np.log2(sq)-base)/100, score_value))
-
-    # while np.sum(process_status)>0:
-    #     pass 
 
     return score_value
 
@@ -276,7 +274,6 @@ def report_throughput(start_time):
 
 
 if __name__ == '__main__':
-    manager = mp.Manager()
     q = manager.Queue(maxsize=file_count)
     
     for i in range(file_count):
@@ -288,8 +285,11 @@ if __name__ == '__main__':
         p.start()
     
     start = time.time()
-    throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
-    throughput_thread.start()
+    # throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
+    # throughput_thread.start()
+    reporting_process = mp.Process(target=report_throughput, args=(start,))
+    reporting_process.daemon = True
+    reporting_process.start()
     run_transfer()
     end = time.time()
             
