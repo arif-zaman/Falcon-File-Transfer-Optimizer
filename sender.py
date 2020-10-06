@@ -191,7 +191,8 @@ def sample_transfer(params):
         sq = 2 ** base
         
     log.info("SC: {0}, RC: {1}".format(sc, rc))  
-    thrpt = np.mean(throughput_logs[-2:])
+    thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
+        
     lr, C1, C2 = 0, int(configurations["C"]), 2
     if sc != 0:
         lr = rc/sc if sc>rc else 0
