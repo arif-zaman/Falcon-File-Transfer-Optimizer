@@ -1,13 +1,13 @@
-import os
-import time
 import socket
-import warnings
+import os
 import numpy as np
+import time
+import warnings
 import logging as log
 import multiprocessing as mp
+from threading import Thread
+# from sendfile import sendfile
 from config import configurations
-from threading import Thread, Lock
-from concurrent.futures import ThreadPoolExecutor
 from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -30,83 +30,23 @@ if "emulab_test" in configurations and configurations["emulab_test"] is not None
     emulab_test = configurations["emulab_test"]
 
 
-lock = Lock()
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
 file_count = len(file_names)
 throughput_logs = []
 
-chunk_size, num_workers, sample_phase, transfer_done = 0, 0, 0, 0
-process_status = [0 for i in range(configurations["thread_limit"])]
-transfer_complete = [0 for i in range(file_count)]
-transfer_running = [0 for i in range(file_count)]
-file_offsets = [0 for i in range(file_count)]
+chunk_size = mp.Value("i", 0)
+num_workers = mp.Value("i", 0)
+sample_phase = mp.Value("i", 0)
+transfer_done = mp.Value("i", 0)
+process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
+file_transfer_complete = mp.Array("i", [0 for i in range(file_count)])
+file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
-
-def update_chunk_size(value):
-    global chunk_size
-    # with lock:
-    chunk_size = value
-
-
-def update_num_workers(value):
-    global num_workers
-    # with lock:
-    num_workers = value
-
-
-def update_sample_phase(value):
-    global sample_phase
-    # with lock:
-    sample_phase = value
-        
-
-def update_transfer_done(value):
-    global transfer_done
-    # with lock:
-    transfer_done = value
-
-
-def update_process_status(indx, value):
-    global process_status
-    # with lock:
-    process_status[indx] = value
-        
-
-def update_transfer_complete(indx, value):
-    global transfer_complete
-    # with lock:
-    transfer_complete[indx] = value
-
-
-def update_transfer_running(indx, value):
-    global transfer_running
-    # with lock:
-    transfer_running[indx] = value
-        
-
-def update_file_offsets(indx, value):
-    global file_offsets
-    # with lock:
-    file_offsets[indx] = value
-
-
-def get_a_file_id():
-    global file_count, transfer_running
-    file_id = -1
-    if True:
-        for i in range(file_count):
-            if transfer_running[i] == 0:
-                update_transfer_running(i, 1)
-                i = file_id
-                break
-    
-    return file_id
-        
 
 def tcp_stats(addr):
     start = time.time()
@@ -134,19 +74,16 @@ def tcp_stats(addr):
     return sent, retm, sq
 
 
-def worker(process_id):
-    global transfer_done, num_workers, chunk_size, sample_phase
-    global transfer_running, process_status, transfer_complete, file_offsets
-    
-    file_count = len(transfer_running)
-    while transfer_done == 0:
+def worker(process_id, q):
+    while transfer_done.value == 0:
         if process_status[process_id] == 0:
-            if (file_count == np.sum(transfer_complete)):
-                update_transfer_done(1)
+            if (file_count == np.sum(file_transfer_complete)):
+                transfer_done.value = 1
         else:
-            while num_workers < 1:
+            while num_workers.value < 1:
                 pass
-    
+
+            # log.debug("Start - {0}".format(process_id))
             try:
                 sock = socket.socket()
                 sock.settimeout(3)
@@ -157,52 +94,54 @@ def worker(process_id):
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
-                # for file_id in range(process_id, len(file_names), num_workers):
-                while (np.sum(transfer_running) < file_count) and (process_status[process_id] == 1):
-                    file_id = get_a_file_id()
-                    if file_id == -1:
+                # for i in range(process_id, file_count, num_workers.value):
+                while not q.empty():
+                    if process_status[process_id] == 0:
                         break
-
-                    if transfer_complete[file_id] == 0:
-                        filename = root + file_names[file_id]
-                        with open(filename, "rb") as file:
-                            offset = file_offsets[file_id]
-
-                            log.debug("starting {0}, {1}, {2}".format(process_id, file_id, filename))
-                            timer100ms = time.time()
-                        
-                            while process_status[process_id] == 1:
-                                if emulab_test:
-                                    buffer_size = min(chunk_size, second_target-second_data_count)
-                                    data_to_send = bytearray(buffer_size)
-                                    sent = sock.send(data_to_send)
-                                else:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size)
-                                    # data = os.preadv(file,chunk_size,offset)
-                                    
-                                offset += sent
-                                update_file_offsets(file_id, offset)
-
-                                if emulab_test:
-                                    second_data_count += sent
-                                    if second_data_count >= second_target:
-                                        second_data_count = 0
-                                        while timer100ms + (1/factor) > time.time():
-                                            pass
-                                        
-                                        timer100ms = time.time()
-                                
-                                if sent == 0:
-                                    update_transfer_complete(file_id, 1)
-                                    log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename)) 
-                                    break
-                
-                    if transfer_running[file_id] != transfer_complete[file_id]:
-                        update_transfer_running(file_id, transfer_complete[file_id])
-                
-                if process_status[process_id] != 0:
-                    update_process_status(process_id, 0)
                     
+                    try:
+                        file_id = q.get()
+                    except:
+                        break
+                    
+                    if file_transfer_complete[file_id] == 0:
+                        filename = root + file_names[file_id]
+                        file = open(filename, "rb")
+                        offset = file_offsets[file_id]
+
+                        log.debug("starting {0}, {1}, {2}".format(process_id, file_id, filename))
+                        timer100ms = time.time()
+                       
+                        while process_status[process_id] == 1:
+                            if emulab_test:
+                                buffer_size = min(chunk_size.value, second_target-second_data_count)
+                                data_to_send = bytearray(buffer_size)
+                                sent = sock.send(data_to_send)
+                            else:
+                                sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
+                                # data = os.preadv(file,chunk_size.value,offset)
+                                
+                            offset += sent
+                            file_offsets[file_id] = offset
+
+                            if emulab_test:
+                                second_data_count += sent
+                                if second_data_count >= second_target:
+                                    second_data_count = 0
+                                    while timer100ms + (1/factor) > time.time():
+                                        pass
+                                    
+                                    timer100ms = time.time()
+                            
+                            if sent == 0:
+                                file_transfer_complete[file_id] = 1
+                                log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename)) 
+                                break
+                
+                    if file_transfer_complete[file_id] == 0:
+                        q.put(file_id)
+                    
+                process_status[process_id] = 0
                 sock.close()
             
             except socket.timeout as e:
@@ -210,10 +149,10 @@ def worker(process_id):
                 
             except Exception as e:
                 log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
+            
+            # log.debug("End - {0}".format(process_id))
     
-    if process_status[process_id] != 0:
-        update_process_status(process_id, 0)
-        
+    process_status[process_id] == 0
     return True 
 
 
@@ -223,24 +162,21 @@ def get_chunk_size(unit):
 
 
 def sample_transfer(params):
-    global throughput_logs, num_workers, process_status
-    
-    if transfer_done == 1:
+    global throughput_logs
+    if transfer_done.value == 1:
         return 10 ** 10
         
     log.info("Sample Transfer -- Probing Parameters: {0}".format(params))
-    if len(file_names) < num_workers:
-        params[0] = len(file_names)
-        log.info("Effective Concurrency: {0}".format(num_workers))
-    
-    update_num_workers(params[0])
+    num_workers.value = params[0]
+    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
+
     current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
         if i < params[0]:
             if (i >= current_cc):
-                update_process_status(i, 1)
+                process_status[i] = 1
         else:
-            update_process_status(i, 0)
+            process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
     time.sleep(probing_time-2.2)
@@ -259,36 +195,38 @@ def sample_transfer(params):
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) - (C2 * ((np.log2(sq)-base)/100))) 
+    score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) + (C2 *((np.log2(sq)-base)/100))) 
     score_value = np.round(score_value * (-1), 4)
     
     log.info("Probing -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
         np.round(thrpt), np.round(lr*100, 2), (np.log2(sq)-base)/100, score_value))
 
+    # while np.sum(process_status)>0:
+    #     pass 
+
     return score_value
 
 
 def normal_transfer(params):
-    global num_workers, process_status, transfer_done, num_workers
+    num_workers.value = params[0]
+    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
+        
+    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
     
-    update_num_workers(params[0])
-    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers]))
-    
-    files_left = len(transfer_complete) - np.sum(transfer_complete)
-    if files_left < num_workers:
-        update_num_workers(files_left)
-        log.info("Effective Concurrency: {0}".format(num_workers))
+    files_left = len(file_transfer_complete) - np.sum(file_transfer_complete)
+    if files_left < num_workers.value:
+        num_workers.value = files_left
+        log.info("Effective Concurrency: {0}".format(num_workers.value))
 
-    for i in range(num_workers):
-        update_process_status(i, 1)
+    for i in range(num_workers.value):
+        process_status[i] = 1
     
-    while (np.sum(process_status) > 0) and (transfer_done == 0):
+    while (np.sum(process_status) > 0) and (transfer_done.value == 0):
         pass
 
     
 def run_transfer():
-    global transfer_done
-    update_sample_phase(1)
+    sample_phase.value = 1
 
     if configurations["method"].lower() == "random":
         params = dummy(configurations, sample_transfer, log)
@@ -308,17 +246,17 @@ def run_transfer():
     else:
         params = base_optimizer(configurations, sample_transfer, log)
     
-    update_sample_phase(0)
-    if transfer_done == 0:
+    sample_phase.value = 0
+    if transfer_done.value == 0:
         normal_transfer(params)
     
 
 def report_throughput(start_time):
-    global throughput_logs, transfer_complete, transfer_done
+    global throughput_logs
     previous_total = 0
     previous_time = 0
 
-    while (len(transfer_complete) > sum(transfer_complete)) and (transfer_done == 0):
+    while (len(file_transfer_complete) > sum(file_transfer_complete)) and (transfer_done.value == 0):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
         
@@ -333,21 +271,25 @@ def report_throughput(start_time):
             throughput_logs.append(curr_thrpt)
             log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
                 time_since_begining, curr_thrpt, thrpt))
-            
-        t2 = time.time()
-        time.sleep(max(0, 1 - (t2-t1)))
+            t2 = time.time()
+            time.sleep(max(0, 1 - (t2-t1)))
 
 
 if __name__ == '__main__':
-    update_chunk_size(get_chunk_size(configurations["chunk_limit"]))
+    manager = mp.Manager()
+    q = manager.Queue(maxsize=file_count)
     
-    workers = [Thread(target=worker, args=(indx,)) for indx in range(configurations["chunk_limit"])]
-    for t in workers:
-        t.start()
+    for i in range(file_count):
+        q.put(i)
+        
+    workers = [mp.Process(target=worker, args=(i, q)) for i in range(configurations["thread_limit"])]
+    for p in workers:
+        p.daemon = True
+        p.start()
     
     start = time.time()
-    reporting_thread = Thread(target=report_throughput, args=(start,))
-    reporting_thread.start()
+    throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
+    throughput_thread.start()
     run_transfer()
     end = time.time()
             
@@ -356,3 +298,8 @@ if __name__ == '__main__':
     thrpt = np.round((total*8*1024)/time_since_begining,2)
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
         total, time_since_begining, thrpt))
+    
+    for p in workers:
+        if p.is_alive():
+            p.terminate()
+            p.join(timeout=0.1)
