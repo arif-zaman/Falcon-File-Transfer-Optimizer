@@ -23,15 +23,39 @@ def get_chunk_size(unit):
 def worker(sock):
     while True:
         try:
-            total = 0
             client, address = sock.accept()
             logger.debug("{u} connected".format(u=address))
             
-            chunk = client.recv(chunk_size.value)
-            while chunk:
+            total = 0
+            d = client.recv(1).decode()
+            while d:
+                header = str(d)
+                while True:
+                    d = client.recv(1).decode()
+                    if d == '\n':
+                        break
+                    header += d
+                
+                header = header.split(",")
+                
+                filename, offset, to_rcv = header[0], int(header[1]), int(header[2])
+                file = open(root + filename, "wb")
+                file.seek(offset)
+                
                 chunk = client.recv(chunk_size.value)
-                total += len(chunk)
-            
+                while len(chunk) > 0:
+                    file.write(chunk)
+                    to_rcv -= len(chunk)
+                    total += len(chunk)
+                    
+                    if to_rcv <= 0:
+                        print(to_rcv)
+                        break
+                    
+                    chunk = client.recv(chunk_size.value)
+                    
+                file.close()
+                
             total = np.round(total/(1024*1024))
             logger.debug("{u} exited. total received {d} MB".format(u=address, d=total))
             client.close()

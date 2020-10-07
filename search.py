@@ -242,6 +242,9 @@ def brute_force(configurations, black_box_function, logger, verbose=True):
     
     for i in range(1, max_thread+1):
         score.append(black_box_function([i]))
+        
+        if score[-1] == 10 ** 10:
+            break
     
     
     cc = np.argmin(score) + 1

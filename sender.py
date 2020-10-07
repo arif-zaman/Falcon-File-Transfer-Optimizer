@@ -34,6 +34,7 @@ manager = mp.Manager()
 root = configurations["data_dir"]["sender"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
+file_sizes = [os.path.getsize(root+filename) for filename in file_names]
 file_count = len(file_names)
 throughput_logs = manager.list()
 
@@ -109,11 +110,16 @@ def worker(process_id, q):
                         filename = root + file_names[file_id]
                         file = open(filename, "rb")
                         offset = file_offsets[file_id]
-
+                        left_to_transfer = file_sizes[file_id] - offset
+                        
+                        if left_to_transfer>0:
+                            msg = file_names[file_id] + "," + str(int(offset)) + "," + str(int(left_to_transfer)) + "\n"
+                            sock.send(msg.encode())
+                            
                         log.debug("starting {0}, {1}, {2}".format(process_id, file_id, filename))
                         timer100ms = time.time()
                        
-                        while process_status[process_id] == 1:
+                        while (left_to_transfer > 0) and (process_status[process_id] == 1):
                             if emulab_test:
                                 buffer_size = min(chunk_size.value, second_target-second_data_count)
                                 data_to_send = bytearray(buffer_size)
@@ -123,6 +129,7 @@ def worker(process_id, q):
                                 # data = os.preadv(file,chunk_size.value,offset)
                                 
                             offset += sent
+                            left_to_transfer -= sent
                             file_offsets[file_id] = offset
 
                             if emulab_test:
@@ -134,12 +141,12 @@ def worker(process_id, q):
                                     
                                     timer100ms = time.time()
                             
-                            if sent == 0:
-                                file_transfer_complete[file_id] = 1
-                                log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename)) 
-                                break
+                            # if sent == 0:
+                            #     file_transfer_complete[file_id] = 1
+                            #     log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename)) 
+                            #     break
                 
-                    if file_transfer_complete[file_id] == 0:
+                    if left_to_transfer > 0:
                         q.put(file_id)
                     
                 process_status[process_id] = 0
