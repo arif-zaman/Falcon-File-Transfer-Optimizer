@@ -79,13 +79,13 @@ def tcp_stats(addr):
 def worker(process_id, q):
     while transfer_done.value == 0:
         if process_status[process_id] == 0:
-            if (file_count == np.sum(file_transfer_complete)):
+            if np.sum(file_offsets) == np.sum(file_sizes):
                 transfer_done.value = 1
         else:
             while num_workers.value < 1:
                 pass
 
-            # log.debug("Start - {0}".format(process_id))
+            log.debug("Start Process :: {0}".format(process_id))
             try:
                 sock = socket.socket()
                 sock.settimeout(3)
@@ -96,40 +96,38 @@ def worker(process_id, q):
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
-                # for i in range(process_id, file_count, num_workers.value):
-                while not q.empty():
-                    if process_status[process_id] == 0:
-                        break
-                    
+                while (not q.empty()) and (process_status[process_id] == 1):
                     try:
                         file_id = q.get()
                     except:
+                        process_status[process_id] = 0
                         break
                     
-                    if file_transfer_complete[file_id] == 0:
+                    offset = file_offsets[file_id]
+                    to_send = file_sizes[file_id] - offset
+                    
+                    if (to_send > 0) and (process_status[process_id] == 1):
                         filename = root + file_names[file_id]
                         file = open(filename, "rb")
-                        offset = file_offsets[file_id]
-                        left_to_transfer = file_sizes[file_id] - offset
-                        
-                        if left_to_transfer>0:
-                            msg = file_names[file_id] + "," + str(int(offset)) + "," + str(int(left_to_transfer)) + "\n"
-                            sock.send(msg.encode())
+                        msg = file_names[file_id] + "," + str(int(offset)) 
+                        msg += "," + str(int(to_send)) + "\n"
+                        sock.send(msg.encode())
                             
                         log.debug("starting {0}, {1}, {2}".format(process_id, file_id, filename))
                         timer100ms = time.time()
                        
-                        while (left_to_transfer > 0) and (process_status[process_id] == 1):
+                        while (to_send > 0) and (process_status[process_id] == 1):
                             if emulab_test:
-                                buffer_size = min(chunk_size.value, second_target-second_data_count)
-                                data_to_send = bytearray(buffer_size)
+                                block_size = min(chunk_size.value, second_target-second_data_count)
+                                data_to_send = bytearray(block_size)
                                 sent = sock.send(data_to_send)
                             else:
-                                sent = sock.sendfile(file=file, offset=int(offset), count=chunk_size.value)
-                                # data = os.preadv(file,chunk_size.value,offset)
+                                block_size = min(chunk_size.value, to_send)
+                                sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                # data = os.preadv(file, block_size, offset)
                                 
                             offset += sent
-                            left_to_transfer -= sent
+                            to_send -= sent
                             file_offsets[file_id] = offset
 
                             if emulab_test:
@@ -140,16 +138,10 @@ def worker(process_id, q):
                                         pass
                                     
                                     timer100ms = time.time()
-                            
-                            # if sent == 0:
-                            #     file_transfer_complete[file_id] = 1
-                            #     log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename)) 
-                            #     break
                 
-                    if left_to_transfer > 0:
+                    if to_send > 0:
                         q.put(file_id)
                     
-                process_status[process_id] = 0
                 sock.close()
             
             except socket.timeout as e:
@@ -158,10 +150,9 @@ def worker(process_id, q):
             except Exception as e:
                 log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
             
-            # log.debug("End - {0}".format(process_id))
+            log.debug("End Process :: {0}".format(process_id))
     
     process_status[process_id] == 0
-    return True 
 
 
 def get_chunk_size(unit):
@@ -218,12 +209,6 @@ def normal_transfer(params):
     chunk_size.value = get_chunk_size(configurations["chunk_limit"])
         
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
-    
-    files_left = len(file_transfer_complete) - np.sum(file_transfer_complete)
-    if files_left < num_workers.value:
-        num_workers.value = files_left
-        log.info("Effective Concurrency: {0}".format(num_workers.value))
-
     for i in range(num_workers.value):
         process_status[i] = 1
     
