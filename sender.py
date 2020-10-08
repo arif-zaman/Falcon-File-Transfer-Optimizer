@@ -189,15 +189,17 @@ def sample_transfer(params):
     log.info("SC: {0}, RC: {1}".format(sc, rc))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
-    lr, C1, C2 = 0, int(configurations["C"]), 2
+    lr, C1, C2 = 0, int(configurations["C"]), 3
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) - (C2 *((np.log2(sq)-base)/100))) 
+    sq_rate = (np.log2(sq) - base)/100
+    factor = (C1 * ((1/(1-lr))-1)) + (C2 * ((1/(1-sq_rate))-1))
+    score_value = thrpt * (1 - factor) 
     score_value = np.round(score_value * (-1), 4)
     
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
-        np.round(thrpt), np.round(lr*100, 2), (np.log2(sq)-base)/100, score_value))
+    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, SQ_rate: {2}, Score: {3}".format(
+        np.round(thrpt), np.round(lr, 4), np.round(sq_rate, 4), score_value))
 
     return score_value
 
