@@ -37,7 +37,7 @@ def worker(sock):
                 
                 file_stats = header.split(",")
                 filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
-                file = open(root + filename, "rb+")
+                file = open(root + filename, "wb+")
                 file.seek(offset)
                 logger.debug("Receiving file: {0}".format(filename))
                 
