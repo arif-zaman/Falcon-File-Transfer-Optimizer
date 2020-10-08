@@ -13,6 +13,10 @@ if configurations["loglevel"] == "debug":
     logger = mp.log_to_stderr(logging.DEBUG)
 else:
     logger = mp.log_to_stderr(logging.INFO)
+    
+emulab_test = False
+if "emulab_test" in configurations and configurations["emulab_test"] is not None:
+    emulab_test = configurations["emulab_test"]
 
 
 def get_chunk_size(unit):
@@ -43,7 +47,9 @@ def worker(sock):
                 
                 chunk = client.recv(chunk_size.value)
                 while chunk:
-                    file.write(chunk)
+                    if not emulab_test:
+                        file.write(chunk)
+                        
                     to_rcv -= len(chunk)
                     total += len(chunk)
                     
