@@ -38,12 +38,10 @@ file_sizes = [os.path.getsize(root+filename) for filename in file_names]
 file_count = len(file_names)
 throughput_logs = manager.list()
 
-chunk_size = mp.Value("i", 0)
+chunk_size = (2 ** max(0, configurations["chunk_limit"])) * 1024
 num_workers = mp.Value("i", 0)
-sample_phase = mp.Value("i", 0)
-transfer_done = mp.Value("i", 0)
+file_incomplete = mp.Value("i", file_count)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-file_transfer_complete = mp.Array("i", [0 for i in range(file_count)])
 file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
@@ -77,10 +75,9 @@ def tcp_stats(addr):
 
 
 def worker(process_id, q):
-    while transfer_done.value == 0:
+    while file_incomplete.value > 0:
         if process_status[process_id] == 0:
-            if np.sum(file_offsets) == np.sum(file_sizes):
-                transfer_done.value = 1
+            pass
         else:
             while num_workers.value < 1:
                 pass
@@ -118,11 +115,11 @@ def worker(process_id, q):
                        
                         while (to_send > 0) and (process_status[process_id] == 1):
                             if emulab_test:
-                                block_size = min(chunk_size.value, second_target-second_data_count)
+                                block_size = min(chunk_size, second_target-second_data_count)
                                 data_to_send = bytearray(block_size)
                                 sent = sock.send(data_to_send)
                             else:
-                                block_size = min(chunk_size.value, to_send)
+                                block_size = min(chunk_size, to_send)
                                 sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
                                 # data = os.preadv(file, block_size, offset)
                                 
@@ -141,6 +138,8 @@ def worker(process_id, q):
                 
                     if to_send > 0:
                         q.put(file_id)
+                    else:
+                        file_incomplete.value = file_incomplete.value - 1
                     
                 sock.close()
             
@@ -162,12 +161,11 @@ def get_chunk_size(unit):
 
 def sample_transfer(params):
     global throughput_logs
-    if transfer_done.value == 1:
+    if file_incomplete.value == 0:
         return 10 ** 10
         
     log.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     num_workers.value = params[0]
-    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
 
     current_cc = np.sum(process_status)
     for i in range(configurations["thread_limit"]):
@@ -198,7 +196,7 @@ def sample_transfer(params):
     score_value = thrpt * (1 - (C1 * ((1/(1-lr))-1)) - (C2 *((np.log2(sq)-base)/100))) 
     score_value = np.round(score_value * (-1), 4)
     
-    log.info("Probing -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
+    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}%, SQ_rate: {2}%, Score: {3}".format(
         np.round(thrpt), np.round(lr*100, 2), (np.log2(sq)-base)/100, score_value))
 
     return score_value
@@ -206,39 +204,41 @@ def sample_transfer(params):
 
 def normal_transfer(params):
     num_workers.value = params[0]
-    chunk_size.value = get_chunk_size(configurations["chunk_limit"])
-        
-    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value, chunk_size.value]))
+    log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value]))
+    
     for i in range(num_workers.value):
         process_status[i] = 1
     
-    while (np.sum(process_status) > 0) and (transfer_done.value == 0):
+    while (np.sum(process_status) > 0) and (file_incomplete.value > 0):
         pass
 
     
 def run_transfer():
-    sample_phase.value = 1
-
     if configurations["method"].lower() == "random":
+        log.info("Running Random Optimization .... ")
         params = dummy(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "brute":
+        log.info("Running Brute Force Optimization .... ")
         params = brute_force(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "hill_climb":
+        log.info("Running Hill Climb Optimization .... ")
         params = hill_climb(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "gradient":
+        log.info("Running Gradient Optimization .... ")
         params = gradient_ascent(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
+        log.info("Running a fixed configurations Probing .... ")
         params = [configurations["probe_config"]["thread"]]
         
     else:
+        log.info("Running Bayesian Optimization .... ")
         params = base_optimizer(configurations, sample_transfer, log)
     
-    sample_phase.value = 0
-    if transfer_done.value == 0:
+    if file_incomplete.value > 0:
         normal_transfer(params)
     
 
@@ -247,7 +247,7 @@ def report_throughput(start_time):
     previous_total = 0
     previous_time = 0
 
-    while (len(file_transfer_complete) > sum(file_transfer_complete)) and (transfer_done.value == 0):
+    while file_incomplete.value > 0:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
         
@@ -268,7 +268,6 @@ def report_throughput(start_time):
 
 if __name__ == '__main__':
     q = manager.Queue(maxsize=file_count)
-    
     for i in range(file_count):
         q.put(i)
         
@@ -278,8 +277,6 @@ if __name__ == '__main__':
         p.start()
     
     start = time.time()
-    # throughput_thread = Thread(target=report_throughput, args=(start,), daemon=True)
-    # throughput_thread.start()
     reporting_process = mp.Process(target=report_throughput, args=(start,))
     reporting_process.daemon = True
     reporting_process.start()
@@ -292,6 +289,7 @@ if __name__ == '__main__':
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
         total, time_since_begining, thrpt))
     
+    reporting_process.terminate()
     for p in workers:
         if p.is_alive():
             p.terminate()
