@@ -185,8 +185,8 @@ def sample_transfer(params):
     base = 10
     if sq < 2 ** base:
         sq = 2 ** base
-        
-    log.info("SC: {0}, RC: {1}".format(sc, rc))  
+    
+    log.info("SC: {0}, RC: {1}, SQ: {2}".format(sc, rc, sq))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
     lr, C = 0, int(configurations["C"])
@@ -202,7 +202,10 @@ def sample_transfer(params):
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, SQ_rate: {2}, Score: {3}".format(
         np.round(thrpt), np.round(lr, 4), np.round(sq_rate, 4), score_value))
 
-    return score_value
+    if file_incomplete.value == 0:
+        return 10 ** 10
+    else:
+        return score_value
 
 
 def normal_transfer(params):
