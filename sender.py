@@ -29,6 +29,10 @@ emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
     emulab_test = configurations["emulab_test"]
 
+file_transfer = True
+if "file_transfer" in configurations and configurations["file_transfer"] is not None:
+    file_transfer = configurations["file_transfer"]
+
 
 manager = mp.Manager()
 root = configurations["data_dir"]["sender"]
@@ -116,12 +120,14 @@ def worker(process_id, q):
                         while (to_send > 0) and (process_status[process_id] == 1):
                             if emulab_test:
                                 block_size = min(chunk_size, second_target-second_data_count)
-                                data_to_send = bytearray(block_size)
-                                sent = sock.send(data_to_send)
+                                sent = sock.send(bytearray(block_size))
                             else:
                                 block_size = min(chunk_size, to_send)
-                                sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
-                                # data = os.preadv(file, block_size, offset)
+                                if file_transfer:
+                                    sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                    # data = os.preadv(file, block_size, offset)
+                                else:
+                                    sent = sock.send(bytearray(block_size))
                                 
                             offset += sent
                             to_send -= sent
