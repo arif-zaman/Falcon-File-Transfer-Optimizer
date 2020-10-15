@@ -14,9 +14,9 @@ if configurations["loglevel"] == "debug":
 else:
     logger = mp.log_to_stderr(logging.INFO)
     
-emulab_test = False
-if "emulab_test" in configurations and configurations["emulab_test"] is not None:
-    emulab_test = configurations["emulab_test"]
+file_transfer = True
+if "file_transfer" in configurations and configurations["file_transfer"] is not None:
+    file_transfer = configurations["file_transfer"]
 
 
 def get_chunk_size(unit):
@@ -38,27 +38,29 @@ def worker(sock):
                     header += str(d)
                     d = client.recv(1).decode()
                     
-                
-                file_stats = header.split(",")
-                filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
-                file = open(root + filename, "wb+")
-                file.seek(offset)
-                logger.debug("Receiving file: {0}".format(filename))
-                
-                chunk = client.recv(chunk_size.value)
-                while chunk:
-                    if not emulab_test:
-                        file.write(chunk)
-                        
-                    to_rcv -= len(chunk)
-                    total += len(chunk)
+                if file_transfer:
+                    file_stats = header.split(",")
+                    filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
+                    file = open(root + filename, "wb+")
+                    file.seek(offset)
+                    logger.debug("Receiving file: {0}".format(filename))
                     
-                    if to_rcv > 0: 
-                        chunk = client.recv(min(chunk_size.value, to_rcv))
-                    else:
-                        file.close()
-                        logger.debug("Successfully received file: {0}".format(filename))
-                        break
+                    chunk = client.recv(chunk_size.value)
+                    while chunk:
+                        file.write(chunk)
+                        to_rcv -= len(chunk)
+                        total += len(chunk)
+                        
+                        if to_rcv > 0: 
+                            chunk = client.recv(min(chunk_size.value, to_rcv))
+                        else:
+                            file.close()
+                            logger.debug("Successfully received file: {0}".format(filename))
+                            break
+                else:
+                    chunk = client.recv(chunk_size.value)
+                    while chunk:
+                        chunk = client.recv(chunk_size.value)
                 
                 d = client.recv(1).decode()
                     
