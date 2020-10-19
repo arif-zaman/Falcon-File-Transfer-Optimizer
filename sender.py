@@ -185,15 +185,15 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(probing_time-2.2)
+    time.sleep(0.25)
     before_sc, before_rc, before_sq = tcp_stats(RCVR_ADDR)
-    time.sleep(2)
+    time.sleep(probing_time - 0.25)
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
-    sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
-    base = 10
-    if sq < 2 ** base:
-        sq = 2 ** base
+    sc, rc, sq = after_sc - before_sc, after_rc - before_rc, after_sq - before_sq
+    # base = 10
+    # if sq < 2 ** base:
+    #     sq = 2 ** base
     
     log.info("SC: {0}, RC: {1}, SQ: {2}".format(sc, rc, sq))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
@@ -202,9 +202,12 @@ def sample_transfer(params):
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    sq_rate = (np.log2(sq) - base)/100
-    factor = C * (((1/(1-lr))-1) + ((1/(1-sq_rate))-1))
-    print(factor)
+    sq_rate = (np.log2(np.abs(sq))/100)
+    if sq < 0:
+        sq_rate = (np.log2(np.abs(sq))/100) * (-1)
+        
+    factor = C * ((1/(1-lr))-1) + ((1/(1-sq_rate))-1)
+    print(sq_rate, factor)
     score_value = thrpt * (1 - factor) 
     score_value = np.round(score_value * (-1), 4)
     
