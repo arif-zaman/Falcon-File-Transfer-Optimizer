@@ -194,10 +194,10 @@ def sample_transfer(params):
     time.sleep(probing_time - 1.2)
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
-    sc, rc, sq = after_sc - before_sc, after_rc - before_rc, after_sq - before_sq
-    # base = 10
-    # if sq < 2 ** base:
-    #     sq = 2 ** base
+    sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
+    base = 15
+    if sq < 2 ** base:
+        sq = 2 ** base
     
     log.info("SC: {0}, RC: {1}, SQ: {2}".format(sc, rc, sq))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
