@@ -146,7 +146,7 @@ def worker(process_id, q):
                                     
                                     timer100ms = time.time()
                             
-                            if (time.time - start_time) > probing_time:
+                            if (time.time() - start_time) > probing_time:
                                 process_status[process_id] = 0
                 
                     if to_send > 0:
