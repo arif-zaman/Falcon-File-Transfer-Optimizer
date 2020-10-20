@@ -88,6 +88,7 @@ def worker(process_id, q):
 
             log.debug("Start Process :: {0}".format(process_id))
             try:
+                start_time = time.time()
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
@@ -144,6 +145,9 @@ def worker(process_id, q):
                                         pass
                                     
                                     timer100ms = time.time()
+                            
+                            if (time.time - start_time) > probing_time:
+                                process_status[process_id] = 0
                 
                     if to_send > 0:
                         q.put(file_id)
@@ -185,9 +189,9 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(0.25)
+    time.sleep(1)
     before_sc, before_rc, before_sq = tcp_stats(RCVR_ADDR)
-    time.sleep(probing_time - 0.25)
+    time.sleep(probing_time - 1.2)
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
     sc, rc, sq = after_sc - before_sc, after_rc - before_rc, after_sq - before_sq
@@ -213,6 +217,9 @@ def sample_transfer(params):
     
     log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, SQ_rate: {2}, Score: {3}".format(
         np.round(thrpt), np.round(lr, 4), np.round(sq_rate, 4), score_value))
+    
+    while (np.sum(process_status) > 0):
+        pass
 
     if file_incomplete.value == 0:
         return 10 ** 10
