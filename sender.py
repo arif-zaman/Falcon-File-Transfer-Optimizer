@@ -58,8 +58,10 @@ def tcp_stats(addr):
     try:
         data = os.popen("ss -ti").read().split("\n")
 
+        count = 0
         for i in range(1,len(data)):
             if addr in data[i-1]:
+                count += 1
                 sq += int([i for i in data[i-1].split(" ") if i][2])
                 parse_data = data[i].split(" ")
                 for entry in parse_data:
@@ -72,6 +74,7 @@ def tcp_stats(addr):
     except:
         pass
     
+    print("in tcp stats: ", count)
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
     log.debug("Send-Q: {0}".format(sq))
@@ -189,9 +192,9 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(1)
+    time.sleep(2)
     before_sc, before_rc, before_sq = tcp_stats(RCVR_ADDR)
-    time.sleep(probing_time - 1.2)
+    time.sleep(probing_time - 2.2)
     after_sc, after_rc, after_sq = tcp_stats(RCVR_ADDR)
 
     sc, rc, sq = after_sc - before_sc, after_rc - before_rc, np.abs(after_sq - before_sq)
