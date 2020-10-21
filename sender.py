@@ -61,7 +61,7 @@ def tcp_stats():
     
     try:
         query = "tc -s qdisc show dev {0} | grep backlog".format(interface)
-        backlog_root_size = int(os.popen(query).read().split("\n")[0].split(" ")[-1])
+        backlog_root_size = int(os.popen(query).read().split("\n")[0].strip().split(" ")[-1])
     except Exception as e:
         print(e)
     
