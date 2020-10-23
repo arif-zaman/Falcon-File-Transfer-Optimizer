@@ -111,6 +111,7 @@ def get_sendq_avg(n_time):
         curr_value = collect_sendq()
         send_q.append(np.abs(curr_value-prev_value))
         prev_value = curr_value
+        curr_time = time.time()
     
     return np.mean(send_q[5:])
         
@@ -224,7 +225,8 @@ def sample_transfer(params):
     log.debug("Active CC: {0}".format(np.sum(process_status)))
     time.sleep(1)
     before_sc, before_rc, before_brs = tcp_stats()
-    sq = get_sendq_avg(probing_time - 1.2)
+    n_time = probing_time - 1.2
+    sq = get_sendq_avg(n_time)
     after_sc, after_rc, after_brs = tcp_stats()
     sc, rc, brs = after_sc - before_sc, after_rc - before_rc, after_brs - before_brs
     
