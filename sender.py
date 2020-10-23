@@ -241,10 +241,10 @@ def sample_transfer(params):
     brs_rate = np.log2(brs)/100
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     score_value = (thrpt * (1 - factor))/sq
-    score_value = np.round(score_value * (-1), 4)
+    score_value = np.round(score_value * (-1))
     
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, Score: {3}".format(
-        np.round(thrpt), np.round(lr, 4), score_value))
+    log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
+        np.round(thrpt), np.round(lr*100, 2), score_value))
 
     if file_incomplete.value == 0:
         return 10 ** 10
