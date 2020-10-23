@@ -109,11 +109,12 @@ def get_sendq_avg(n_time):
     while (curr_time - start_time) < n_time:
         time.sleep(0.1)
         curr_value = collect_sendq()
-        send_q.append(np.abs(curr_value-prev_value))
+        value = np.abs(curr_value-prev_value)/(1000*1000)
+        send_q.append(value)
         prev_value = curr_value
         curr_time = time.time()
     
-    return np.mean(send_q[5:])
+    return np.round(np.mean(send_q[1:]), 3)
         
 
 def worker(process_id, q):
@@ -228,22 +229,22 @@ def sample_transfer(params):
     n_time = probing_time - 1.2
     sq = get_sendq_avg(n_time)
     after_sc, after_rc, after_brs = tcp_stats()
-    sc, rc, brs = after_sc - before_sc, after_rc - before_rc, after_brs - before_brs
+    sc, rc, brs = after_sc - before_sc, after_rc - before_rc, max(1, after_brs - before_brs)
     
     log.info("SC: {0}, RC: {1}, SQ: {2}, BRS: {3}".format(sc, rc, sq, brs))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
-    lr, C, C_sq = 0, int(configurations["C"]), 2
+    lr, C1, C2 = 0, int(configurations["C"]), 2
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    sq_rate = (np.log2(np.abs(sq))/100)
-    factor = C * ((1/(1-lr))-1) + C_sq * ((1/(1-sq_rate))-1)
-    score_value = (thrpt * (1 - factor)) - (5*brs)
+    brs_rate = np.log2(brs)/100
+    factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
+    score_value = (thrpt * (1 - factor))/sq
     score_value = np.round(score_value * (-1), 4)
     
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, SQ_rate: {2}, Score: {3}".format(
-        np.round(thrpt), np.round(lr, 4), np.round(sq_rate, 4), score_value))
+    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, Score: {3}".format(
+        np.round(thrpt), np.round(lr, 4), score_value))
 
     if file_incomplete.value == 0:
         return 10 ** 10
