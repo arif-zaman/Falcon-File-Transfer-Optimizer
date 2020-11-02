@@ -62,12 +62,12 @@ RCVR_ADDR = str(HOST) + ":" + str(PORT)
 def tcp_stats():
     global interface, RCVR_ADDR
     start = time.time()
-    sent, retm, sendq = 0, 0, 0
+    sent, retm = 0, 0
     backlog_root_size = 0
     
     try:
         query = "tc -s qdisc show dev {0} | grep backlog".format(interface)
-        backlog_root_size = int(os.popen(query).read().split("\n")[0].split(" ")[-1])
+        backlog_root_size = int(os.popen(query).read().split("\n")[0].strip().split(" ")[-1])
     except Exception as e:
         print(e)
     
@@ -75,7 +75,6 @@ def tcp_stats():
         data = os.popen("ss -ti").read().split("\n")
         for i in range(1,len(data)):
             if RCVR_ADDR in data[i-1]:
-                sendq += int([i for i in data[i-1].split(" ") if i][2])
                 parse_data = data[i].split(" ")
                 for entry in parse_data:
                     if "data_segs_out" in entry:
@@ -89,8 +88,40 @@ def tcp_stats():
 
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
-    return sent, retm, sendq, backlog_root_size
+    return sent, retm, backlog_root_size
 
+
+def collect_sendq():
+    global RCVR_ADDR
+    sendq = 0
+    try:
+        data = os.popen("ss -ti").read().split("\n")
+        for i in range(1,len(data)):
+            if RCVR_ADDR in data[i-1]:
+                sendq += int([i for i in data[i-1].split(" ") if i][2])
+                
+    except Exception as e:
+        print(e)
+    
+    return sendq
+
+
+def get_sendq_avg(n_time):
+    start_time = time.time()
+    send_q = []
+    curr_time = time.time()
+    prev_value = collect_sendq()
+    
+    while (curr_time - start_time) < n_time:
+        time.sleep(0.1)
+        curr_value = collect_sendq()
+        value = np.abs(curr_value-prev_value)/(1000*1000)
+        send_q.append(value)
+        prev_value = curr_value
+        curr_time = time.time()
+    
+    return np.round(np.mean(send_q[1:]), 3)
+        
 
 def worker(process_id, q):
     while file_incomplete.value > 0:
@@ -184,6 +215,7 @@ def get_chunk_size(unit):
 
 def sample_transfer(params):
     global throughput_logs
+    max_cc =  configurations["thread_limit"]
     if file_incomplete.value == 0:
         return 10 ** 10
         
@@ -199,33 +231,29 @@ def sample_transfer(params):
             process_status[i] = 0
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
-    time.sleep(2)
-    before_sc, before_rc, before_sq, before_brs = tcp_stats()
-    time.sleep(probing_time - 2.2)
-    after_sc, after_rc, after_sq, after_brs = tcp_stats()
-
-    sc, rc, sq, brs = after_sc - before_sc, after_rc - before_rc, after_sq - before_sq, after_brs - before_brs
-    base = 15
-    if sq < 2 ** base:
-        sq = 2 ** base
+    time.sleep(1)
+    before_sc, before_rc, before_brs = tcp_stats()
+    n_time = probing_time - 1.2
+    # sq = get_sendq_avg(n_time)
+    time.sleep(n_time)
+    after_sc, after_rc, after_brs = tcp_stats()
+    sc, rc, brs = after_sc - before_sc, after_rc - before_rc, max(1, after_brs - before_brs)
     
-    log.info("SC: {0}, RC: {1}, SQ: {2}, BRS: {3}".format(sc, rc, sq, brs))  
+    log.info("SC: {0}, RC: {1}, BRS: {2}".format(sc, rc, brs))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
-    lr, C, C_sq = 0, int(configurations["C"]), 0
+    lr, C1, C2 = 0, int(configurations["C"]), 2
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    sq_rate = (np.log2(np.abs(sq))/100)
-    if sq < 0:
-        sq_rate = (np.log2(np.abs(sq))/100) * (-1)
-        
-    factor = C * ((1/(1-lr))-1) + C_sq * ((1/(1-sq_rate))-1)
-    score_value = (thrpt * (1 - factor)) - (5*brs)
-    score_value = np.round(score_value * (-1), 4)
+    brs_rate = np.log2(brs)/100
+    factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
+    # score_value = (thrpt * (1 - factor))/sq
+    score_value = (thrpt * (1 - factor)) * ((max_cc + 1 - current_cc)/max_cc)
+    score_value = np.round(score_value * (-1))
     
-    log.info("Sample Transfer -- Throughput: {0}, Loss Rate: {1}, SQ_rate: {2}, Score: {3}".format(
-        np.round(thrpt), np.round(lr, 4), np.round(sq_rate, 4), score_value))
+    log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
+        np.round(thrpt), np.round(lr*100, 2), score_value))
 
     if file_incomplete.value == 0:
         return 10 ** 10
