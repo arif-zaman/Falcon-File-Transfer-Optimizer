@@ -107,3 +107,4 @@ homework1/
 config.py
 data/
 .vscode
+**/*.log
