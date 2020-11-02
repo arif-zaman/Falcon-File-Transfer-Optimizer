@@ -3,6 +3,7 @@ import os
 import numpy as np
 import time
 import warnings
+import datetime
 import logging as log
 import multiprocessing as mp
 from threading import Thread
@@ -18,12 +19,17 @@ configurations["chunk_limit"] = configurations['limits']["bsize"]
 if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
-FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
+log_FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
+log_file = datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
 if configurations["loglevel"] == "debug":
-    log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.DEBUG)
+    log.basicConfig(format=log_FORMAT, 
+                    datefmt='%m/%d/%Y %I:%M:%S %p', 
+                    level=log.DEBUG,
+                    filename=log_file,
+                    filemode="w")
     mp.log_to_stderr(log.DEBUG)
 else:
-    log.basicConfig(format=FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
+    log.basicConfig(format=log_FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
 
 emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
