@@ -27,9 +27,14 @@ if configurations["loglevel"] == "debug":
                     level=log.DEBUG,
                     filename=log_file,
                     filemode="w")
+    
     mp.log_to_stderr(log.DEBUG)
 else:
-    log.basicConfig(format=log_FORMAT, datefmt='%m/%d/%Y %I:%M:%S %p', level=log.INFO)
+    log.basicConfig(format=log_FORMAT, 
+                    datefmt='%m/%d/%Y %I:%M:%S %p', 
+                    level=log.INFO,
+                    filename=log_file,
+                    filemode="w")
 
 emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
@@ -249,9 +254,11 @@ def sample_transfer(params):
     brs_rate = np.log2(brs)/100
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     # score_value = (thrpt * (1 - factor))/sq
-    
-    if lr < 0.1:
-        score_value = (thrpt * (1 - factor)) * ((max_cc + 1 - current_cc)/max_cc)
+    score_value = thrpt * (1 - factor)
+    if lr < 0.001: # 0.1%
+        cc_factor = (current_cc - 1)/max_cc
+        score_value = score_value * (1 - cc_factor)
+        
         
     score_value = np.round(score_value * (-1))
     
