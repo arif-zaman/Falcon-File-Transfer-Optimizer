@@ -20,7 +20,7 @@ if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
 log_FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
-log_file = datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
 if configurations["loglevel"] == "debug":
     log.basicConfig(format=log_FORMAT, 
                     datefmt='%m/%d/%Y %I:%M:%S %p', 
