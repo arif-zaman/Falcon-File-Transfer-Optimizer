@@ -255,7 +255,7 @@ def sample_transfer(params):
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     # score_value = (thrpt * (1 - factor))/sq
     score_value = thrpt * (1 - factor)
-    if lr < 0.001: # 0.1%
+    if True: #lr < 0.001: # 0.1%
         cc_factor = (num_workers.value - 1)/max_cc
         score_value = score_value * (1 - cc_factor)
         
