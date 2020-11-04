@@ -19,7 +19,7 @@ configurations["chunk_limit"] = configurations['limits']["bsize"]
 if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
-log_FORMAT = '%(asctime)s -- %(levelname)s: %(message)s'
+log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
 if configurations["loglevel"] == "debug":
     log.basicConfig(format=log_FORMAT, 
@@ -143,7 +143,7 @@ def worker(process_id, q):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target, factor = 100, 5
+                    target, factor = 100, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
