@@ -6,7 +6,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs, count = 25, 0
+    limit_obs, count = 100, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]  
     search_space  = [Integer(1, max_thread)]
@@ -139,7 +139,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
         logger.info("Iteration {0} Starts ...".format(count))
 
     t1 = time.time()
-    params = [current_cc, 7]
+    params = [current_cc]
     current_value = black_box_function(params) * (-1)
     t2 = time.time()
 
@@ -172,7 +172,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                 next_cc = ccs[-1] + (np.random.choice([-1,1]))
 
             else:
-                distance = np.abs(ccs[-2] - ccs[-1])
+                distance = max(1, np.abs(ccs[-2] - ccs[-1]))
                 
                 if ccs[-1] > ccs[-2]:
                     delta = values[-1] - values[-2]
@@ -196,7 +196,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                         
                 gradient_change = np.abs(gradient/values[-2])
                 logger.info("Gredient Change: {}".format(gradient_change))
-                update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
+                update_cc = int(theta * np.round(ccs[-1] * gradient_change))
                 if update_cc < -10:
                     update_cc = -10
                 

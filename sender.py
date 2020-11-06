@@ -20,7 +20,7 @@ if configurations["thread_limit"] == -1:
     configurations["thread_limit"] = configurations["cpu_count"]
     
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
-log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + "special.log"
 if configurations["loglevel"] == "debug":
     log.basicConfig(format=log_FORMAT, 
                     datefmt='%m/%d/%Y %I:%M:%S %p', 
@@ -253,11 +253,12 @@ def sample_transfer(params):
     
     brs_rate = np.log2(brs)/100
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
+    score_value = thrpt
     # score_value = (thrpt * (1 - factor))/sq
-    score_value = thrpt * (1 - factor)
-    if True: #lr < 0.001: # 0.1%
-        cc_factor = (num_workers.value - 1)/max_cc
-        score_value = score_value * (1 - cc_factor)
+    # score_value = thrpt * (1 - factor)
+    # if True: #lr < 0.001: # 0.1%
+    #     cc_factor = (num_workers.value - 1)/max_cc
+    #     score_value = score_value * (1 - cc_factor)
         
         
     score_value = np.round(score_value * (-1))
