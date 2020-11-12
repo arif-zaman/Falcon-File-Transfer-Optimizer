@@ -68,13 +68,6 @@ def tcp_stats():
     global interface, RCVR_ADDR
     start = time.time()
     sent, retm = 0, 0
-    backlog_root_size = 0
-    
-    try:
-        query = "tc -s qdisc show dev {0} | grep backlog".format(interface)
-        backlog_root_size = int(os.popen(query).read().split("\n")[0].strip().split(" ")[-1])
-    except Exception as e:
-        print(e)
     
     try:
         data = os.popen("ss -ti").read().split("\n")
@@ -93,39 +86,37 @@ def tcp_stats():
 
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
-    return sent, retm, backlog_root_size
+    return sent, retm
 
 
-def collect_sendq():
+def collect_backlog_root_size():
     global RCVR_ADDR
-    sendq = 0
+    br_size = 0
     try:
-        data = os.popen("ss -ti").read().split("\n")
-        for i in range(1,len(data)):
-            if RCVR_ADDR in data[i-1]:
-                sendq += int([i for i in data[i-1].split(" ") if i][2])
+        query = "tc -s qdisc show dev {0} | grep backlog".format(interface)
+        br_size = int(os.popen(query).read().split("\n")[0].strip().split(" ")[-1])
                 
     except Exception as e:
         print(e)
     
-    return sendq
+    return br_size
 
 
-def get_sendq_avg(n_time):
+def get_brs_avg(n_time):
     start_time = time.time()
-    send_q = []
+    trans_q = []
     curr_time = time.time()
-    prev_value = collect_sendq()
+    prev_value = collect_backlog_root_size()
     
     while (curr_time - start_time) < n_time:
         time.sleep(0.1)
-        curr_value = collect_sendq()
-        value = np.abs(curr_value-prev_value)/(1000*1000)
-        send_q.append(value)
+        curr_value = collect_backlog_root_size()
+        value = np.abs(curr_value-prev_value)
+        trans_q.append(value)
         prev_value = curr_value
         curr_time = time.time()
     
-    return np.round(np.mean(send_q[1:]), 3)
+    return int(np.round(np.mean(trans_q[3:])))
         
 
 def worker(process_id, q):
@@ -238,11 +229,11 @@ def sample_transfer(params):
     log.debug("Active CC: {0}".format(np.sum(process_status)))
     time.sleep(1)
     before_sc, before_rc, before_brs = tcp_stats()
-    n_time = probing_time - 1.2
-    # sq = get_sendq_avg(n_time)
-    time.sleep(n_time)
-    after_sc, after_rc, after_brs = tcp_stats()
-    sc, rc, brs = after_sc - before_sc, after_rc - before_rc, max(1, after_brs - before_brs)
+    n_time = probing_time - 1.1
+    brs = get_brs_avg(n_time)
+    # time.sleep(n_time)
+    after_sc, after_rc = tcp_stats()
+    sc, rc = after_sc - before_sc, after_rc - before_rc
     
     log.info("SC: {0}, RC: {1}, BRS: {2}".format(sc, rc, brs))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
@@ -254,13 +245,11 @@ def sample_transfer(params):
     brs_rate = np.log2(brs)/100
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
-    # score_value = (thrpt * (1 - factor))/sq
     score_value = thrpt * (1 - factor)
-    if True: #lr < 0.001: # 0.1%
-        cc_factor = (num_workers.value - 1)/max_cc
-        score_value = score_value * (1 - cc_factor)
-        
+    cc_factor = (num_workers.value - 1)/max_cc
+    score_value = score_value * (1 - cc_factor)
     score_value = np.round(score_value * (-1))
+    
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
