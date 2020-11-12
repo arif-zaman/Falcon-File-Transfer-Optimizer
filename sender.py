@@ -228,7 +228,7 @@ def sample_transfer(params):
 
     log.debug("Active CC: {0}".format(np.sum(process_status)))
     time.sleep(1)
-    before_sc, before_rc, before_brs = tcp_stats()
+    before_sc, before_rc = tcp_stats()
     n_time = probing_time - 1.1
     brs = get_brs_avg(n_time)
     # time.sleep(n_time)
