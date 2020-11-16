@@ -239,7 +239,7 @@ def sample_transfer(params):
     log.info("SC: {0}, RC: {1}, BRS: {2}".format(sc, rc, brs))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
-    lr, C1, C2 = 0, int(configurations["C"]), 2
+    lr, C1, C2 = 0, int(configurations["C"]), 0
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
@@ -247,8 +247,9 @@ def sample_transfer(params):
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
     score_value = thrpt * (1 - factor)
-    cc_factor = max(1, np.log2(num_workers.value))# (num_workers.value - 1)/max_cc
-    score_value = score_value / cc_factor #* (1 - cc_factor)
+    # cc_factor = (num_workers.value - 1)/max_cc
+    # score_value = score_value * (1 - cc_factor)
+    score_value = 0.75 * score_value + (0.25 * score_value)/num_workers.value 
     score_value = np.round(score_value * (-1))
     
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
