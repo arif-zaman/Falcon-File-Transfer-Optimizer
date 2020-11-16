@@ -209,7 +209,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
                 next_cc = 1
                 
             if next_cc > max_thread:
-                next_cc == max_thread
+                next_cc = max_thread
                 
             ccs.append(next_cc)
 
