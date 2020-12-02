@@ -230,9 +230,9 @@ def sample_transfer(params):
     
     time.sleep(1)
     before_sc, before_rc = tcp_stats()
-    # n_time = probing_time - 1.1
+    n_time = probing_time - 1.1
     # brs = max(get_brs_avg(n_time), 1)
-    # time.sleep(n_time)
+    time.sleep(n_time)
     after_sc, after_rc = tcp_stats()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
