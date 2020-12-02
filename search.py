@@ -168,7 +168,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             ccs.append(2)
         
         else:
-            if ccs[-1] == ccs[-2]:
+            if False:
                 next_cc = ccs[-1] + (np.random.choice([-1,1]))
 
             else:

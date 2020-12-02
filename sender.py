@@ -247,9 +247,9 @@ def sample_transfer(params):
     factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
     score_value = thrpt * (1 - factor)
-    # cc_factor = (num_workers.value - 1)/max_cc
-    # score_value = score_value * (1 - cc_factor)
-    score_value = 0.75 * score_value + (0.25 * score_value)/num_workers.value 
+    cc_factor = (num_workers.value - 1)/max_cc
+    score_value = score_value * (1 - cc_factor)
+    # score_value = 0.75 * score_value + (0.25 * score_value)/num_workers.value 
     score_value = np.round(score_value * (-1))
     
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
