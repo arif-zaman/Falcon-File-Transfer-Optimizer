@@ -230,21 +230,21 @@ def sample_transfer(params):
     
     time.sleep(1)
     before_sc, before_rc = tcp_stats()
-    n_time = probing_time - 1.1
-    brs = max(get_brs_avg(n_time), 1)
+    # n_time = probing_time - 1.1
+    # brs = max(get_brs_avg(n_time), 1)
     # time.sleep(n_time)
     after_sc, after_rc = tcp_stats()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
-    log.info("SC: {0}, RC: {1}, BRS: {2}".format(sc, rc, brs))  
+    log.info("SC: {0}, RC: {1}".format(sc, rc))  
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
         
     lr, C1, C2 = 0, int(configurations["C"]), 0
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    brs_rate = np.log2(brs)/100
-    factor = C1 * ((1/(1-lr))-1) + C2 * ((1/(1-brs_rate))-1)
+    # brs_rate = np.log2(brs)/100
+    factor = C1 * ((1/(1-lr))-1) #+ C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
     score_value = thrpt * (1 - factor)
     cc_factor = (num_workers.value - 1)/max_cc
