@@ -137,13 +137,12 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
         logger.info("Iteration {0} Starts ...".format(count))
 
     t1 = time.time()
-    params = [current_cc]
-    current_value = black_box_function(params)
+    current_value = black_box_function([current_cc])
     t2 = time.time()
 
     if verbose:
-        logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
-            count, params, current_value, np.round(t2-t1, 2)))
+        logger.info("Iteration {0} Ends, Took {1} Seconds. Score: {2}.".format(
+            count, np.round(t2-t1, 2), current_value))
     
     return current_value
 
@@ -182,9 +181,9 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             else:
                 theta = 1
         
-        update_cc = int(np.round(theta * ccs[-1] * gradient_change))
+        update_cc = int(np.ceil(theta * ccs[-1] * gradient_change))
         next_cc = min(max(ccs[-1] + update_cc, 2), max_thread-1)
-        logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Choosen CC: {3}".format(gradient, gradient_change, theta, next_cc))
+        logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
         ccs.append(next_cc)
 
     return [ccs[-1]]
