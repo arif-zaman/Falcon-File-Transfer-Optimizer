@@ -156,9 +156,9 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
 
     while True:
         values.append(run_probe(ccs[-1]-1, count+1, verbose, logger, black_box_function))
-        values.append(run_probe(ccs[-1], count+2, verbose, logger, black_box_function))
-        values.append(run_probe(ccs[-1]+1, count+3, verbose, logger, black_box_function))
-        count += 3
+        # values.append(run_probe(ccs[-1], count+2, verbose, logger, black_box_function))
+        values.append(run_probe(ccs[-1]+1, count+2, verbose, logger, black_box_function))
+        count += 2
 
         if values[-1] == 10 ** 10:
             logger.info("Optimizer Exits ...")
@@ -167,8 +167,8 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
         if len(ccs) == 1:
             ccs.append(2)
         
-        gradient = (values[-1] - values[-3])/2
-        gradient_change = np.abs(gradient/values[-3])
+        gradient = (values[-1] - values[-2])/2
+        gradient_change = np.abs(gradient/values[-2])
         
         if gradient>0:
             if theta <= 0:
@@ -182,9 +182,8 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             else:
                 theta = 1
         
-        gradient_change = np.abs(gradient/values[-2])
         logger.info("Gradient: {0}, Gredient Change: {1}".format(gradient, gradient_change))
-        update_cc = int(theta * np.round(ccs[-1] * gradient_change))
+        update_cc = int(np.round(theta * ccs[-1] * gradient_change))
         next_cc = min(max(ccs[-1] + update_cc, 2), max_thread-1)
         ccs.append(next_cc)
 
