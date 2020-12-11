@@ -6,7 +6,7 @@ import time
 
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
-    limit_obs, count = 100, 0
+    limit_obs, count = 20, 0
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]  
     search_space  = [Integer(1, max_thread)]
