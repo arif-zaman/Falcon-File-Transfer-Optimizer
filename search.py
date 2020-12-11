@@ -168,7 +168,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             ccs.append(2)
         
         gradient = (values[-1] - values[-3])/2
-        gradient_change = np.abs(gradient/values[-2])
+        gradient_change = np.abs(gradient/values[-3])
         
         if gradient>0:
             if theta <= 0:
