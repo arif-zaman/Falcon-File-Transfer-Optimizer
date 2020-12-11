@@ -133,8 +133,6 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
 
 
 def run_probe(current_cc, count, verbose, logger, black_box_function):
-    count += 1
-        
     if verbose:
         logger.info("Iteration {0} Starts ...".format(count))
 
@@ -153,12 +151,14 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
 def gradient_ascent(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
     values = []
-    ccs = [1]
+    ccs = [2]
     theta = 0
 
     while True:
-        count += 1
-        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+        values.append(run_probe(ccs[-1]-1, count+1, verbose, logger, black_box_function))
+        values.append(run_probe(ccs[-1], count+2, verbose, logger, black_box_function))
+        values.append(run_probe(ccs[-1]+1, count+3, verbose, logger, black_box_function))
+        count += 3
 
         if values[-1] == 10 ** 10:
             logger.info("Optimizer Exits ...")
@@ -167,51 +167,26 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
         if len(ccs) == 1:
             ccs.append(2)
         
-        else:
-            if False:
-                next_cc = ccs[-1] + (np.random.choice([-1,1]))
-
+        gradient = (values[-1] - values[-3])/2
+        gradient_change = np.abs(gradient/values[-2])
+        
+        if gradient>0:
+            if theta <= 0:
+                theta -= 1
             else:
-                distance = max(1, np.abs(ccs[-2] - ccs[-1]))
+                theta = -1
                 
-                if ccs[-1] > ccs[-2]:
-                    delta = values[-1] - values[-2]
-                else:
-                    delta = values[-2] - values[-1]
-                    
-                gradient = delta/distance
-                # logger.info("Gredient: {}".format(gradient))
-
-                if gradient<0:
-                    if theta <= 0:
-                        theta -= 1
-                    else:
-                        theta = -1
-                
-                else:
-                    if theta >= 0:
-                        theta += 1
-                    else:
-                        theta = 1
-                        
-                gradient_change = np.abs(gradient/values[-2])
-                logger.info("Gredient Change: {}".format(gradient_change))
-                update_cc = int(theta * np.round(ccs[-1] * gradient_change))
-                if update_cc < -10:
-                    update_cc = -10
-                
-                if update_cc > 10:
-                    update_cc = 10
-                    
-                next_cc = ccs[-1] + update_cc
-            
-            if next_cc < 1:
-                next_cc = 1
-                
-            if next_cc > max_thread:
-                next_cc = max_thread
-                
-            ccs.append(next_cc)
+        else:
+            if theta >= 0:
+                theta += 1
+            else:
+                theta = 1
+        
+        gradient_change = np.abs(gradient/values[-2])
+        logger.info("Gradient: {0}, Gredient Change: {1}".format(gradient, gradient_change))
+        update_cc = int(theta * np.round(ccs[-1] * gradient_change))
+        next_cc = min(max(ccs[-1] + update_cc, 2), max_thread-1)
+        ccs.append(next_cc)
 
     return [ccs[-1]]
 
