@@ -181,7 +181,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
             else:
                 theta = 1
         
-        update_cc = int(np.ceil(theta * ccs[-1] * gradient_change))
+        update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
         next_cc = min(max(ccs[-1] + update_cc, 2), max_thread-1)
         logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
         ccs.append(next_cc)
