@@ -138,7 +138,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
 
     t1 = time.time()
     params = [current_cc]
-    current_value = black_box_function(params) * (-1)
+    current_value = black_box_function(params)
     t2 = time.time()
 
     if verbose:
