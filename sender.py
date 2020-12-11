@@ -134,7 +134,7 @@ def worker(process_id, q):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target, factor = 10, 10
+                    target, factor = 15, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
