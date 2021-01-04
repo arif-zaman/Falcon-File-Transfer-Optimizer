@@ -53,8 +53,9 @@ def harp_response(params):
         # score = np.round(thrpt * (1 + cc_factor) * (-1))
         score = (thrpt/(1.01)**cc) * (-1)
     
-    logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
-        np.round(thrpt), score))
+        logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
+            np.round(thrpt), score))
+        
     return score
 
 
