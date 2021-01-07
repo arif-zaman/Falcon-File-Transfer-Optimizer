@@ -22,7 +22,7 @@ def worker(sock):
                 if count == 30:
                     thrpt = -1
                 else:   
-                    thrpt = min(20 * cc, 1000)
+                    thrpt = min(100 * cc, np.random.randint(935,945))
                 time.sleep(1)
                 output = str(thrpt)
                 client.sendall(output.encode('utf-8'))

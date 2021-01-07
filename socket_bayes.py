@@ -51,7 +51,7 @@ def harp_response(params):
     else:
         # cc_factor = np.ceil(100/cc)/100
         # score = np.round(thrpt * (1 + cc_factor) * (-1))
-        score = (thrpt/(1.01)**cc) * (-1)
+        score = (thrpt/(1.05)**cc) * (-1)
     
         logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
             np.round(thrpt), score))
@@ -96,7 +96,7 @@ def base_optimizer(black_box_function):
 
 
 if __name__ == '__main__':
-    max_cc = 100
+    max_cc = 64
     HOST, PORT = "localhost", 32000
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((HOST, PORT))

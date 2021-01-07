@@ -134,7 +134,7 @@ def worker(process_id, q):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target, factor = 15, 10
+                    target, factor = 100, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
@@ -244,11 +244,12 @@ def sample_transfer(params):
         lr = rc/sc if sc>rc else 0
     
     # brs_rate = np.log2(brs)/100
-    factor = C1 * ((1/(1-lr))-1) #+ C2 * ((1/(1-brs_rate))-1)
+    factor = C1 * lr #((1/(1-lr))-1) #+ C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
-    score_value = thrpt * (1 - factor)
-    cc_factor = (num_workers.value - 1)/max_cc
-    score_value = score_value * (1 - cc_factor)
+    score = thrpt/(1.05)**num_workers.value
+    score_value = score * (1 - factor)
+    # cc_factor = (num_workers.value - 1)/max_cc
+    # score_value = score_value * (1 - cc_factor)
     # score_value = 0.75 * score_value + (0.25 * score_value)/num_workers.value 
     score_value = np.round(score_value * (-1))
     
