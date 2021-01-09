@@ -9,7 +9,7 @@ import multiprocessing as mp
 from threading import Thread
 # from sendfile import sendfile
 from config import configurations
-from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent
+from search import  base_optimizer, dummy, brute_force, hill_climb, gradient_ascent, gradient_ascent2
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -246,7 +246,7 @@ def sample_transfer(params):
     # brs_rate = np.log2(brs)/100
     factor = C1 * lr #((1/(1-lr))-1) #+ C2 * ((1/(1-brs_rate))-1)
     # score_value = thrpt
-    score = thrpt/(1.05)**num_workers.value
+    score = thrpt/(1.02)**num_workers.value
     score_value = score * (1 - factor)
     # cc_factor = (num_workers.value - 1)/max_cc
     # score_value = score_value * (1 - cc_factor)
@@ -288,7 +288,7 @@ def run_transfer():
     
     elif configurations["method"].lower() == "gradient":
         log.info("Running Gradient Optimization .... ")
-        params = gradient_ascent(configurations, sample_transfer, log)
+        params = gradient_ascent2(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         log.info("Running a fixed configurations Probing .... ")

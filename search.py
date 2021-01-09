@@ -189,6 +189,55 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
     return [ccs[-1]]
 
 
+def gradient_ascent2(configurations, black_box_function, logger, verbose=True):
+    max_thread, count = configurations["thread_limit"], 0
+    values = []
+    ccs = [1]
+    theta = 0
+
+    while True:
+        count += 1
+        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+
+        if values[-1] == 10 ** 10:
+            logger.info("Optimizer Exits ...")
+            break
+        
+        if len(ccs) == 1:
+            ccs.append(2)
+        
+        else:
+            dist = max(1, np.abs(ccs[-1] - ccs[-2]))
+            if ccs[-1]>ccs[-2]:
+                gradient = (values[-1] - values[-2])/dist
+            else:
+                gradient = (values[-2] - values[-1])/dist
+            
+            if values[-2] !=0:
+                gradient_change = np.abs(gradient/values[-2])
+            else:
+                gradient_change = np.abs(gradient)
+            
+            if gradient>0:
+                if theta <= 0:
+                    theta -= 1
+                else:
+                    theta = -1
+                    
+            else:
+                if theta >= 0:
+                    theta += 1
+                else:
+                    theta = 1
+        
+
+            update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
+            next_cc = min(max(ccs[-1] + update_cc, 2), max_thread)
+            logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
+            ccs.append(next_cc)
+
+    return [ccs[-1]]
+
     
 def dummy(configurations, black_box_function, logger, verbose=True):    
     search_space  = [

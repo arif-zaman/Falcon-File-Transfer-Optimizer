@@ -1,6 +1,6 @@
 """
 # please install scikit-optimize
-# provide max cc limit, HOST, PORT of the server in main functions
+# provide HOST, PORT of the server in main functions
 1. send message: "start" to start the optmizer
 2. it will send back cc value for probing, for example: "1" and will wait for throughput value
 3. send back throughput values in Mbps, for example: "10000.07"
@@ -54,7 +54,7 @@ def harp_response(params, count):
     else:
         # cc_factor = (cc-1)/max_cc
         # score = np.round(thrpt * (1 - cc_factor) * (-1))
-        score = (thrpt/(1.05)**cc) * (-1)
+        score = (thrpt/(1.02)**cc) * (-1)
     
         logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
             np.round(thrpt), score))
@@ -102,7 +102,7 @@ def gradient(black_box_function):
                     theta = 1
             
             update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
-            next_cc = min(max(ccs[-1] + update_cc, 2), max_thread-1)
+            next_cc = min(max(ccs[-1] + update_cc, 1), max_thread)
             logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
             ccs.append(next_cc)
 

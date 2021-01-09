@@ -1,6 +1,6 @@
 """
 # please install scikit-optimize
-# provide max cc limit, HOST, PORT of the server in main functions
+# provide HOST, PORT of the server in main functions
 1. send message: "start" to start the optmizer
 2. it will send back cc value for probing, for example: "1" and will wait for throughput value
 3. send back throughput values in Mbps, for example: "10000.07"
@@ -51,7 +51,7 @@ def harp_response(params):
     else:
         # cc_factor = np.ceil(100/cc)/100
         # score = np.round(thrpt * (1 + cc_factor) * (-1))
-        score = (thrpt/(1.05)**cc) * (-1)
+        score = (thrpt/(1.02)**cc) * (-1)
     
         logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
             np.round(thrpt), score))
@@ -96,7 +96,7 @@ def base_optimizer(black_box_function):
 
 
 if __name__ == '__main__':
-    max_cc = 64
+    max_cc = 100
     HOST, PORT = "localhost", 32000
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.connect((HOST, PORT))
