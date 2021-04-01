@@ -108,3 +108,4 @@ config.py
 data/
 .vscode
 **/*.log
+emulab_simulation2.py
