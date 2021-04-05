@@ -1,5 +1,5 @@
 """
-# please install scikit-optimize
+# please install scipy
 # provide HOST, PORT of the server in main functions
 1. send message: "start" to start the optmizer
 2. it will send back parameters value (format: cc,pp,pipeline,blocksize) for probing, 
@@ -11,10 +11,8 @@ import warnings
 warnings.filterwarnings('ignore')
 
 import socket
-from skopt.space import Integer
-from skopt import Optimizer as BO
+from scipy.optimize import fmin_cg
 import numpy as np
-import time
 import logging as logger
 
 
@@ -29,7 +27,8 @@ recv_buffer_size = 8192
 
 def harp_response(params):
     global sock
-    params = [int(x) for x in params]
+    params = [int(np.round(x)) for x in params]
+    params = [1 if x<1 else x for x in params]
     
     n = params[0]
     # format >> "Concurrency"
@@ -64,49 +63,17 @@ def harp_response(params):
     return score
 
 
-def base_optimizer(black_box_function, mp_opt=False):
-    limit_obs, count = 100, 0
-    
+def cg_opt(black_box_function, mp_opt=False):
     if mp_opt:
-        search_space  = [
-            Integer(1, 32), # Concurrency
-            Integer(1, 32), # Parallesism
-            Integer(1, 32), # Pipeline
-            Integer(0, 20), # Chunk/Block Size: power of 2
-            ]
+        starting_params = [1, 1, 1, 10]
     else:
-        search_space  = [
-            Integer(1, 32), # Concurrency
-            ]
+        starting_params = [1]
         
-    optimizer = BO(
-        dimensions=search_space,
-        base_estimator="GP", #[GP, RF, ET, GBRT],
-        acq_func="gp_hedge", # [LCB, EI, PI, gp_hedge]
-        acq_optimizer="auto", #[sampling, lbfgs, auto]
-        n_random_starts=8,
-        model_queue_size= limit_obs,
+    fmin_cg(
+        f=black_box_function,
+        x0=starting_params,
+        epsilon=1, # step size
     )
-        
-    while True:
-        count += 1
-
-        if len(optimizer.yi) > limit_obs:
-            optimizer.yi = optimizer.yi[-limit_obs:]
-            optimizer.Xi = optimizer.Xi[-limit_obs:]
-            
-        logger.info("Iteration {0} Starts ...".format(count))
-
-        t1 = time.time()
-        res = optimizer.run(func=black_box_function, n_iter=1)
-        t2 = time.time()
-
-        logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
-            count, res.x, np.round(res.fun), np.round(t2-t1, 2)))
-
-        if optimizer.yi[-1] == -1:
-            logger.info("Optimizer Exits ...")
-            break
 
 
 if __name__ == '__main__':
@@ -115,6 +82,6 @@ if __name__ == '__main__':
     sock.connect((HOST, PORT))
     
     if sock.recv(recv_buffer_size).decode() == "start":
-        base_optimizer(harp_response, mp_opt=False)
+        cg_opt(harp_response, mp_opt=False)
     
     sock.close()

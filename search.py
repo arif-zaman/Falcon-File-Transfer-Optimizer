@@ -8,8 +8,19 @@ import time
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 20, 0
     max_thread = configurations["thread_limit"]
-    iterations = configurations["bayes"]["num_of_exp"]  
-    search_space  = [Integer(1, max_thread)]
+    iterations = configurations["bayes"]["num_of_exp"]
+    mp_opt = configurations["mp_opt"]  
+    if mp_opt:
+        search_space  = [
+            Integer(1, 32), # Concurrency
+            Integer(1, 32), # Parallesism
+            Integer(1, 32), # Pipeline
+            Integer(1, 20), # Chunk/Block Size: power of 2
+            ]
+    else:
+        search_space  = [
+            Integer(1, 32), # Concurrency
+            ]
 
     # if configurations["emulab_test"]:
     #     search_space.append(Integer(6, 7))

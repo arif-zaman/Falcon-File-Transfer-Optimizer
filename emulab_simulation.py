@@ -16,18 +16,25 @@ def worker(sock):
             logger.debug("{u} connected".format(u=address))
             
             client.sendall("start".encode('utf-8'))
-            cc = int(client.recv(recv_buffer_size).decode())
+            params = client.recv(recv_buffer_size).decode().split(",")
+            cc = 0 if len(params) < 1 else int(params[0])
             count = 0
+            
             while cc > 0:
-                if count == 30:
+                count += 1
+                if count > 50:
                     thrpt = -1
                 else:   
-                    thrpt = min(100 * cc, np.random.randint(935,945))
+                    thrpt = min(20 * cc, np.random.randint(935,945))
+                    
                 time.sleep(1)
                 output = str(thrpt)
                 client.sendall(output.encode('utf-8'))
-                cc = int(client.recv(recv_buffer_size).decode())
-                count += 1
+                params = client.recv(recv_buffer_size).decode().split(",")
+                
+                cc = 0 if len(params) < 1 else int(params[0])
+                if len(params)>0:
+                    logger.debug("parameters: {0}".format(params))
                 
             client.close()
         except Exception as e:
