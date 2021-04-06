@@ -1,3 +1,5 @@
+## Only supports Concurrency optimization
+
 import socket
 import os
 import numpy as np
@@ -64,7 +66,7 @@ file_sizes = [os.path.getsize(root+filename) for filename in file_names]
 file_count = len(file_names)
 throughput_logs = manager.list()
 
-chunk_size = (2 ** 10) * 1024
+chunk_size = 1 * 1024 * 1024
 num_workers = mp.Value("i", 0)
 file_incomplete = mp.Value("i", file_count)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
@@ -182,11 +184,6 @@ def worker(process_id, q):
             log.debug("End Process :: {0}".format(process_id))
     
     process_status[process_id] == 0
-
-
-def get_chunk_size(unit):
-    unit = max(unit, 0)
-    return (2 ** unit) * 1024
 
 
 def sample_transfer(params):

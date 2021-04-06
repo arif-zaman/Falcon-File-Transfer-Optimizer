@@ -5,7 +5,7 @@ import logging
 import time
 from config_receiver import configurations
 
-chunk_size = mp.Value("i", 0)
+chunk_size = mp.Value("i", 1024*1024)
 root = configurations["data_dir"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
@@ -17,12 +17,6 @@ else:
 file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
-
-
-def get_chunk_size(unit):
-    unit = max(unit, 0)
-    return (2 ** unit) * 1024
-
 
 def worker(sock):
     while True:

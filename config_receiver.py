@@ -3,8 +3,8 @@ configurations = {
         "host": "0.0.0.0",
         "port": 50021
     },
-    "data_dir": "/home/marifuzzaman/labwork/data2/",
-    "max_cc": -1,
+    "data_dir": "/data/arif/",
+    "max_cc": 32,
     "file_transfer": True,
     "loglevel": "debug",
 }

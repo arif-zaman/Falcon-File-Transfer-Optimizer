@@ -16,7 +16,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=False):
             Integer(1, max_thread), # Concurrency
             Integer(1, 32), # Parallesism
             Integer(1, 32), # Pipeline
-            Integer(1, 20), # Chunk/Block Size: power of 2
+            Integer(1, 20), # Chunk/Block Size in KB: power of 2
         ]
     else:
         search_space  = [

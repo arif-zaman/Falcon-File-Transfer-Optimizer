@@ -3,7 +3,7 @@ configurations = {
         "host": "127.0.0.1",
         "port": 50021
     },
-    "data_dir": "/home/marifuzzaman/labwork/data/",
+    "data_dir": "/data/arif/",
     "method": "brute", #[bayes, random, brute, probe, lbfgs]
     "bayes": {
         "initial_run": 5,
@@ -23,5 +23,5 @@ configurations = {
         "bsize": 7,
         "thread": 4
     },
-    "max_cc": -1,
+    "max_cc": 32,
 }
