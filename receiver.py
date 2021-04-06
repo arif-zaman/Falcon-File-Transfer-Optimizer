@@ -3,10 +3,10 @@ import numpy as np
 import multiprocessing as mp
 import logging
 import time
-from config import configurations
+from config_receiver import configurations
 
 chunk_size = mp.Value("i", 0)
-root = configurations["data_dir"]["receiver"]
+root = configurations["data_dir"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
 if configurations["loglevel"] == "debug":
@@ -47,6 +47,7 @@ def worker(sock):
                     
                     chunk = client.recv(chunk_size.value)
                     while chunk:
+                        print(len(chunk))
                         file.write(chunk)
                         to_rcv -= len(chunk)
                         total += len(chunk)
@@ -72,8 +73,7 @@ def worker(sock):
 
 
 if __name__ == '__main__':
-    num_workers = configurations['limits']["thread"]
-    chunk_size.value = get_chunk_size(configurations['limits']["bsize"])
+    num_workers = configurations['max_cc']
     if num_workers == -1:
         num_workers = mp.cpu_count()
         
