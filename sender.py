@@ -257,11 +257,11 @@ def run_transfer():
     
     elif configurations["method"].lower() == "gradient":
         log.info("Running Gradient Optimization .... ")
-        cg_opt(configurations, sample_transfer)
+        params = cg_opt(configurations, sample_transfer, log)
         
     elif configurations["method"].lower() == "lbfgs":
         log.info("Running Gradient (LBFGS) Optimization .... ")
-        lbfgs_opt(configurations, sample_transfer)
+        params = lbfgs_opt(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "probe":
         log.info("Running a fixed configurations Probing .... ")

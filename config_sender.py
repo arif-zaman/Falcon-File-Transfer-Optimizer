@@ -24,5 +24,5 @@ configurations = {
         "bsize": 7,
         "thread": 4
     },
-    "max_cc": 32,
+    "max_cc": 100,
 }

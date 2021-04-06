@@ -1,6 +1,6 @@
 from skopt.space import Integer
 from skopt import Optimizer, dummy_minimize
-from scipy.optimize import fmin_cg, fmin_l_bfgs_b
+from scipy.optimize import minimize
 import numpy as np
 import time
 
@@ -14,9 +14,9 @@ def base_optimizer(configurations, black_box_function, logger, verbose=False):
     if mp_opt:
         search_space  = [
             Integer(1, max_thread), # Concurrency
-            Integer(1, 32), # Parallesism
-            Integer(1, 32), # Pipeline
-            Integer(1, 20), # Chunk/Block Size in KB: power of 2
+            Integer(1, 10), # Parallesism
+            Integer(1, 10), # Pipeline
+            Integer(5, 20), # Chunk/Block Size in KB: power of 2
         ]
     else:
         search_space  = [
@@ -139,7 +139,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
     return params
 
 
-def cg_opt(configurations, black_box_function):
+def cg_opt(configurations, black_box_function, logger):
     mp_opt = configurations["mp_opt"]
     
     if mp_opt:
@@ -147,14 +147,21 @@ def cg_opt(configurations, black_box_function):
     else:
         starting_params = [1]
         
-    fmin_cg(
-        f=black_box_function,
+    optimizer = minimize(
+        method="CG",
+        fun=black_box_function,
         x0=starting_params,
-        epsilon=1, # step size
+        options= {
+            "eps":1, # step size
+            "gtol": 0
+        },
     )
     
+    logger.info("Best parameters: {0}".format(optimizer.x))
+    return optimizer.x
+    
 
-def lbfgs_opt(configurations, black_box_function):
+def lbfgs_opt(configurations, black_box_function, logger):
     max_thread = configurations["thread_limit"]
     mp_opt = configurations["mp_opt"]
     
@@ -162,9 +169,9 @@ def lbfgs_opt(configurations, black_box_function):
         starting_params = [1, 1, 1, 10]
         search_space  = [
             (1, max_thread), # Concurrency
-            (1, 32), # Parallesism
-            (1, 32), # Pipeline
-            (1, 20), # Chunk/Block Size: power of 2
+            (1, 10), # Parallesism
+            (1, 10), # Pipeline
+            (5, 20), # Chunk/Block Size: power of 2
             ]
     else:
         starting_params = [1]
@@ -172,13 +179,20 @@ def lbfgs_opt(configurations, black_box_function):
             (1, max_thread), # Concurrency
             ]
         
-    fmin_l_bfgs_b(
-        func=black_box_function,
+    optimizer = minimize(
+        method="L-BFGS-B",
+        fun=black_box_function,
         x0=starting_params,
         bounds=search_space,
-        approx_grad=True,
-        epsilon=1 # step size
+        # approx_grad=True,
+        options= {
+            "eps":1, # step size
+            "gtol": 0
+        },
     )
+    
+    logger.info("Best parameters: {0}".format(optimizer.x))
+    return optimizer.x
 
     
 def dummy(configurations, black_box_function, logger, verbose=False):    
