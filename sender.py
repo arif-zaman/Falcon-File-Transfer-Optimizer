@@ -27,6 +27,10 @@ if configurations["loglevel"] == "debug":
         level=log.DEBUG,
         # filename=log_file,
         # filemode="w"
+        handlers=[
+            log.FileHandler(log_file),
+            log.StreamHandler()
+        ]
     )
     
     mp.log_to_stderr(log.DEBUG)
