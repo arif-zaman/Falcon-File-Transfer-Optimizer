@@ -1,10 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "127.0.0.1",
+        "host": "134.197.113.71",
         "port": 50021
     },
     "data_dir": "/data/arif/",
-    "method": "brute", #[bayes, random, brute, probe, lbfgs]
+    "method": "gradient", #[bayes, random, brute, probe, lbfgs]
     "bayes": {
         "initial_run": 5,
         "num_of_exp": -1
@@ -18,7 +18,8 @@ configurations = {
     "K": 1.02,
     "loglevel": "info",
     "probing_sec": 3,
-    "multiplier": 100,
+    "multiplier": 1,
+    "mp_opt": False,
     "fixed_probing": {
         "bsize": 7,
         "thread": 4

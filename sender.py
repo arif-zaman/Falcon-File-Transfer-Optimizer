@@ -52,10 +52,6 @@ if "emulab_test" in configurations and configurations["emulab_test"] is not None
 file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
-    
-mp_opt = False
-if "mp_opt" in configurations and configurations["mp_opt"] is not None:
-    mp_opt = configurations["mp_opt"]
 
 
 manager = mp.Manager()
