@@ -231,7 +231,7 @@ def sample_transfer(params):
 
 
 def normal_transfer(params):
-    num_workers.value = params[0]
+    num_workers.value = max(1, int(np.round(params[0])))
     log.info("Normal Transfer -- Probing Parameters: {0}".format([num_workers.value]))
     
     for i in range(num_workers.value):
@@ -272,7 +272,6 @@ def run_transfer():
         params = base_optimizer(configurations, sample_transfer, log)
     
     if file_incomplete.value > 0:
-        params = dummy(configurations, sample_transfer, log)
         normal_transfer(params)
     
 

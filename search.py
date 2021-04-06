@@ -139,7 +139,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
     return params
 
 
-def cg_opt(configurations, black_box_function, logger):
+def cg_opt(configurations, black_box_function):
     mp_opt = configurations["mp_opt"]
     
     if mp_opt:
@@ -157,11 +157,10 @@ def cg_opt(configurations, black_box_function, logger):
         },
     )
     
-    logger.info("Best parameters: {0}".format(optimizer.x))
     return optimizer.x
     
 
-def lbfgs_opt(configurations, black_box_function, logger):
+def lbfgs_opt(configurations, black_box_function):
     max_thread = configurations["thread_limit"]
     mp_opt = configurations["mp_opt"]
     
@@ -191,7 +190,6 @@ def lbfgs_opt(configurations, black_box_function, logger):
         },
     )
     
-    logger.info("Best parameters: {0}".format(optimizer.x))
     return optimizer.x
 
     
@@ -210,7 +208,6 @@ def dummy(configurations, black_box_function, logger, verbose=False):
         verbose=verbose,
     )
     
-    logger.info("Best parameters: {0} and score: {1}".format(optimizer.x, optimizer.fun))
     return optimizer.x
 
 
