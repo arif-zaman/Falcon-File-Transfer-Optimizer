@@ -10,7 +10,7 @@ import logging as log
 import multiprocessing as mp
 from threading import Thread
 from config_sender import configurations
-from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt
+from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_ascent2
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -259,6 +259,10 @@ def run_transfer():
         params = hill_climb(configurations, sample_transfer, log)
     
     elif configurations["method"].lower() == "gradient":
+        log.info("Running Gradient Optimization .... ")
+        params = gradient_ascent2(configurations, sample_transfer, log)
+    
+    elif configurations["method"].lower() == "cg":
         log.info("Running Gradient Optimization .... ")
         params = cg_opt(configurations, sample_transfer)
         
