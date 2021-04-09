@@ -224,7 +224,8 @@ def sample_transfer(params):
     cc_impact_nl = K**num_workers.value
     cc_impact_lin = (K-1) * num_workers.value
     plr_impact = B*lr
-    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    score = thrpt
+    # score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     #score = thrpt * (1- plr_impact - cc_impact_lin)
     score_value = np.round(score * (-1))
     
