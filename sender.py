@@ -217,8 +217,11 @@ def sample_transfer(params):
     if sc != 0:
         lr = rc/sc if sc>rc else 0
     
-    cc_impact = K**num_workers.value
-    score = (thrpt/cc_impact) - (thrpt *B * lr)
+    cc_impact_nl = K**num_workers.value
+    cc_impact_lin = (K-1) * num_workers.value
+    plr_impact = B*lr
+    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    #score = thrpt * (1- plr_impact - cc_impact_lin)
     score_value = np.round(score * (-1))
     
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
