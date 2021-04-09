@@ -153,7 +153,6 @@ def cg_opt(configurations, black_box_function):
         x0=starting_params,
         options= {
             "eps":1, # step size
-            "gtol": 0
         },
     )
     
@@ -186,7 +185,6 @@ def lbfgs_opt(configurations, black_box_function):
         # approx_grad=True,
         options= {
             "eps":1, # step size
-            "gtol": 0
         },
     )
     

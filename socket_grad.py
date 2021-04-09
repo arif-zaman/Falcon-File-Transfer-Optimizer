@@ -1,8 +1,10 @@
 """
 # please install scikit-optimize
-# it will send back cc value for probing, for example: "1" and will wait for throughput value
-# send back throughput values in Mbps, for example: "10000.07"
-# send "-1" to terminate the optimizer
+# provide max cc limit, HOST, PORT of the server in main functions
+1. send message: "start" to start the optmizer
+2. it will send back cc value for probing, for example: "1" and will wait for throughput value
+3. send back throughput values in Mbps, for example: "10000.07"
+4. send "-1" to terminate the optimizer
 """
 import warnings
 
@@ -10,6 +12,7 @@ from numpy.lib.function_base import gradient
 warnings.filterwarnings('ignore')
 
 import socket
+from scipy.optimize import minimize
 import numpy as np
 import time, os
 import sys,signal
@@ -25,10 +28,10 @@ logger.basicConfig(format=log_FORMAT,
 
 recv_buffer_size = 8192
 
-def harp_response(sock, params, count):
+def harp_response(params, sock):
     global max_cc
     cc = params[0]
-    logger.info("Iteration {0} Starts ...".format(count))
+    # logger.info("Iteration {0} Starts ...".format(count))
     logger.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     thrpt = 0
     
@@ -66,13 +69,13 @@ def gradient(sock, black_box_function):
     theta = 0
 
     while True:
-        values.append(black_box_function(sock, [ccs[-1]-1], count+1))
+        values.append(black_box_function([ccs[-1]-1], sock))
         if values[-1] == -1:
             logger.info("Optimizer Exits ...")
             break
         
         # values.append(run_probe(ccs[-1], count+2, verbose, logger, black_box_function))
-        values.append(black_box_function(sock, [ccs[-1]+1], count+2))
+        values.append(black_box_function([ccs[-1]+1], sock))
         if values[-1] == -1:
             logger.info("Optimizer Exits ...")
             break
@@ -100,6 +103,25 @@ def gradient(sock, black_box_function):
         ccs.append(next_cc)
 
 
+def cg_opt(sock, black_box_function, mp_opt=False):
+    if mp_opt:
+        starting_params = [1, 1, 1, 10]
+    else:
+        starting_params = [1]
+        
+    optimizer = minimize(
+        fun=black_box_function,
+        x0=starting_params,
+        args = (sock,),
+        options={
+            "eps":1, # step size
+        }
+    )
+    
+    while True:
+        black_box_function(optimizer.x, sock)
+        
+
 def signal_handling(signum,frame):
     global terminate
     terminate = True
@@ -122,3 +144,9 @@ if __name__ == '__main__':
         # in this case, we'll pretend this is a threaded server
         t = Thread(target=gradient, args=((sock, harp_response)))
         t.start()
+    #sock.connect((HOST, PORT))
+    
+    #if sock.recv(recv_buffer_size).decode() == "start":
+    #    gradient(harp_response)
+    
+    sock.close()
