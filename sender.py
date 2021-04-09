@@ -43,6 +43,10 @@ else:
         level=log.INFO,
         # filename=log_file,
         # filemode="w"
+        handlers=[
+            log.FileHandler(log_file),
+            log.StreamHandler()
+        ]
     )
 
 emulab_test = False
@@ -112,7 +116,7 @@ def worker(process_id, q):
                 sock.connect((HOST, PORT))
                 
                 if emulab_test:
-                    target, factor = 100, 10
+                    target, factor = 20, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
