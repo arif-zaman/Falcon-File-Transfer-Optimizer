@@ -209,8 +209,11 @@ def sample_transfer(params):
     
     time.sleep(1)
     before_sc, before_rc = tcp_stats()
-    n_time = probing_time - 1.1
-    time.sleep(n_time)
+    n_time = time.time() + probing_time - 1.1
+    # time.sleep(n_time)
+    while (time.time() < n_time) and (file_incomplete.value > 0):
+        time.sleep(0.1)
+
     after_sc, after_rc = tcp_stats()
     sc, rc = after_sc - before_sc, after_rc - before_rc
     
@@ -224,8 +227,8 @@ def sample_transfer(params):
     cc_impact_nl = K**num_workers.value
     cc_impact_lin = (K-1) * num_workers.value
     plr_impact = B*lr
-    score = thrpt
-    # score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    # score = thrpt
+    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     #score = thrpt * (1- plr_impact - cc_impact_lin)
     score_value = np.round(score * (-1))
     

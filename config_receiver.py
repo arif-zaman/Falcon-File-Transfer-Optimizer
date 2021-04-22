@@ -1,10 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "10.1.2.3",
+        "host": "10.3.33.2",
         "port": 50021
     },
-    "data_dir": "/proj/Cross-layer/arif/data2/",
+    "data_dir": "/data/dest_dir/",
     "max_cc": 100,
     "file_transfer": False,
-    "loglevel": "debug",
+    "loglevel": "info",
 }
