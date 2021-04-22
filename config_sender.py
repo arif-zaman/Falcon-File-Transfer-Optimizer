@@ -18,7 +18,7 @@ configurations = {
     "K": 1.02,
     "loglevel": "info",
     "probing_sec": 5,
-    "multiplier": 100,
+    "multiplier": 1,
     "mp_opt": False,
     "fixed_probing": {
         "bsize": 7,
