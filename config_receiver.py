@@ -5,6 +5,6 @@ configurations = {
     },
     "data_dir": "/data/dest_dir/",
     "max_cc": 100,
-    "file_transfer": False,
+    "file_transfer": True,
     "loglevel": "info",
 }

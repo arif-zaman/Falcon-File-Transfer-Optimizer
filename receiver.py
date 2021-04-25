@@ -1,3 +1,4 @@
+import os
 import socket
 import numpy as np
 import multiprocessing as mp
@@ -35,23 +36,28 @@ def worker(sock):
                 if file_transfer:
                     file_stats = header.split(",")
                     filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
-                    file = open(root + filename, "wb+")
-                    file.seek(offset)
+                    fd = os.open(root + filename, os.O_DIRECT | os.O_RDWR | os.O_CREAT)
+                    os.lseek(fd, offset, os.SEEK_SET)
+                    # file = open(root + filename, "wb+")
+                    # file.seek(offset)
                     logger.debug("Receiving file: {0}".format(filename))
                     
                     chunk = client.recv(chunk_size.value)
                     while chunk:
                         print(len(chunk))
-                        file.write(chunk)
+                        # file.write(chunk)
+                        os.write(fd, chunk)
                         to_rcv -= len(chunk)
                         total += len(chunk)
                         
                         if to_rcv > 0: 
                             chunk = client.recv(min(chunk_size.value, to_rcv))
                         else:
-                            file.close()
                             logger.debug("Successfully received file: {0}".format(filename))
                             break
+
+                    # file.close()
+                    os.close(fd)
                 else:
                     chunk = client.recv(chunk_size.value)
                     while chunk:
