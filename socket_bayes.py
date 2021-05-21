@@ -10,12 +10,15 @@
 import warnings
 warnings.filterwarnings('ignore')
 
+import os
 import socket
 from skopt.space import Integer
 from skopt import Optimizer as BO
 import numpy as np
 import time
 import logging as logger
+import sys,signal
+from threading import Thread
 
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
@@ -47,7 +50,7 @@ def harp_response(params):
     while True:
         try:
             message  = sock.recv(recv_buffer_size).decode()
-            thrpt = float(message)
+            thrpt = float(message) if message != "" else -1
             if thrpt is not None:
                 break
             
@@ -55,7 +58,8 @@ def harp_response(params):
             logger.exception(e)
                 
     if thrpt == -1:
-        exit(-1)
+        sock.sendall("".encode('utf-8'))
+        score = thrpt
     else:
         score = (thrpt/(1.02)**n) * (-1)
         logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
@@ -65,18 +69,19 @@ def harp_response(params):
 
 
 def base_optimizer(black_box_function, mp_opt=False):
-    limit_obs, count = 100, 0
+    global max_cc
+    limit_obs, count, init_points = 100, 0, 8 if mp_opt else 3
     
     if mp_opt:
         search_space  = [
-            Integer(1, 32), # Concurrency
+            Integer(1, max_cc), # Concurrency
             Integer(1, 32), # Parallesism
             Integer(1, 32), # Pipeline
             Integer(0, 20), # Chunk/Block Size: power of 2
             ]
     else:
         search_space  = [
-            Integer(1, 32), # Concurrency
+            Integer(1, max_cc), # Concurrency
             ]
         
     optimizer = BO(
@@ -84,7 +89,7 @@ def base_optimizer(black_box_function, mp_opt=False):
         base_estimator="GP", #[GP, RF, ET, GBRT],
         acq_func="gp_hedge", # [LCB, EI, PI, gp_hedge]
         acq_optimizer="auto", #[sampling, lbfgs, auto]
-        n_random_starts=8,
+        n_initial_points=init_points,
         model_queue_size= limit_obs,
     )
         
@@ -109,12 +114,29 @@ def base_optimizer(black_box_function, mp_opt=False):
             break
 
 
+def signal_handling(signum,frame):
+    global terminate
+    terminate = True
+    os._exit(1)
+
+signal.signal(signal.SIGINT,signal_handling)
+
+
 if __name__ == '__main__':
+    max_cc, sock = 100, None
     HOST, PORT = "localhost", 32000
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.connect((HOST, PORT))
+    serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    serversock.bind((HOST, PORT))
+    serversock.listen()
+
+    while True:
+        print ("Waiting")
+        (sock, address) = serversock.accept()
+        print ("Connected", address)
+        # now do something with the clientsocket
+        # in this case, we'll pretend this is a threaded server
+        base_optimizer(harp_response)
+        # t = Thread(target=base_optimizer, args=((harp_response,)))
+        # t.start()
     
-    if sock.recv(recv_buffer_size).decode() == "start":
-        base_optimizer(harp_response, mp_opt=False)
-    
-    sock.close()
+        sock.close()

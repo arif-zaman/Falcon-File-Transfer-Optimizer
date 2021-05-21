@@ -53,6 +53,7 @@ def harp_response(sock, params, count):
     else:
         cc_factor = (cc - 1)/max_cc
         score = np.round(thrpt * (1 - cc_factor) * (-1))
+        # score = (thrpt/(1.02)**cc) * (-1)
     
     logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score))
@@ -107,8 +108,9 @@ def signal_handling(signum,frame):
 
 signal.signal(signal.SIGINT,signal_handling)
 
+
 if __name__ == '__main__':
-    max_cc = 128
+    max_cc = 100
     HOST, PORT = "localhost", 32000
     serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversock.bind((HOST, PORT))

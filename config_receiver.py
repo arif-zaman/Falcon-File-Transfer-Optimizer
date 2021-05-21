@@ -1,6 +1,6 @@
 configurations = {
     "receiver": {
-        "host": "10.3.33.2",
+        "host": "nersc-tbn-7",
         "port": 50021
     },
     "data_dir": "/data/dest_dir/",

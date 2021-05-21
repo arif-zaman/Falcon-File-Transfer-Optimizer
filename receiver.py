@@ -44,7 +44,7 @@ def worker(sock):
                     
                     chunk = client.recv(chunk_size.value)
                     while chunk:
-                        print(len(chunk))
+                        logger.debug("Chunk Size: {0}".format(len(chunk)))
                         # file.write(chunk)
                         os.write(fd, chunk)
                         to_rcv -= len(chunk)

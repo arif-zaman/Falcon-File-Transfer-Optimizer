@@ -54,8 +54,9 @@ def harp_response(params, sock):
     if thrpt == -1:
         score = thrpt
     else:
-        cc_factor = (cc - 1)/max_cc
-        score = np.round(thrpt * (1 - cc_factor) * (-1))
+        # cc_factor = (cc - 1)/max_cc
+        # score = np.round(thrpt * (1 - cc_factor) * (-1))
+        score = (thrpt/(1.02)**cc) * (-1)
     
     logger.info("Sample Transfer -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score))
@@ -129,8 +130,9 @@ def signal_handling(signum,frame):
 
 signal.signal(signal.SIGINT,signal_handling)
 
+
 if __name__ == '__main__':
-    max_cc = 128
+    max_cc = 100
     HOST, PORT = "localhost", 32000
     serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversock.bind((HOST, PORT))
@@ -144,9 +146,5 @@ if __name__ == '__main__':
         # in this case, we'll pretend this is a threaded server
         t = Thread(target=gradient, args=((sock, harp_response)))
         t.start()
-    #sock.connect((HOST, PORT))
-    
-    #if sock.recv(recv_buffer_size).decode() == "start":
-    #    gradient(harp_response)
     
     sock.close()

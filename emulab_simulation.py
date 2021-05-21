@@ -12,10 +12,7 @@ recv_buffer_size = 8192
 def worker(client):
     while True:
         try:
-            # client, address = sock.accept()
-            # logger.debug("{u} connected".format(u=address))
-            
-            # client.sendall("start".encode('utf-8'))
+            n_conns, thrpt_per_i = 17, 40
             params = client.recv(recv_buffer_size).decode().split(",")
             cc = 0 if len(params) < 1 else int(params[0])
             count = 0
@@ -24,8 +21,13 @@ def worker(client):
                 count += 1
                 if count > 50:
                     thrpt = -1
-                else:   
-                    thrpt = min(20 * cc, np.random.randint(935,945))
+                else:
+                    max_limit = np.random.randint(935,945)
+
+                    if 40 * (cc+n_conns) < max_limit : 
+                        thrpt = 40 * cc
+                    else:
+                        thrpt = int(max_limit * (cc/(cc+n_conns)))
                     
                 time.sleep(1)
                 output = str(thrpt)
