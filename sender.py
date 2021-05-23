@@ -89,8 +89,11 @@ def tcp_stats():
                 for entry in parse_data:
                     if "data_segs_out" in entry:
                         sent += int(entry.split(":")[-1])
+
+                    if "bytes_retrans" in entry:
+                        pass
                         
-                    if "retrans" in entry:
+                    elif "retrans" in entry:
                         retm += int(entry.split("/")[-1])
                 
     except Exception as e:
