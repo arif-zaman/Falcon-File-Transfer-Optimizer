@@ -240,7 +240,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
     return current_value
 
 
-def gradient_ascent(configurations, black_box_function, logger, verbose=True):
+def gradient_opt(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
     values = []
     ccs = [2]
@@ -282,7 +282,7 @@ def gradient_ascent(configurations, black_box_function, logger, verbose=True):
     return [ccs[-1]]
 
 
-def gradient_ascent2(configurations, black_box_function, logger, verbose=True):
+def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
     values = []
     ccs = [1]
