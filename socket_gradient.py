@@ -72,7 +72,6 @@ def gradient(sock, black_box_function):
             logger.info("Optimizer Exits ...")
             break
         
-        # values.append(run_probe(ccs[-1], count+2, verbose, logger, black_box_function))
         values.append(black_box_function(sock, [ccs[-1]+1], count+2))
         if values[-1] == -1:
             logger.info("Optimizer Exits ...")
@@ -101,6 +100,54 @@ def gradient(sock, black_box_function):
         ccs.append(next_cc)
 
 
+def gradient_fast(sock, black_box_function):
+    max_thread, count = max_cc, 0
+    values = []
+    ccs = [1]
+    theta = 0
+
+    while True:
+        count += 1
+        values.append(black_box_function(sock, [ccs[-1]], count+1))
+
+        if values[-1] == 10 ** 10:
+            logger.info("Optimizer Exits ...")
+            break
+        
+        if len(ccs) == 1:
+            ccs.append(2)
+        
+        else:
+            dist = max(1, np.abs(ccs[-1] - ccs[-2]))
+            if ccs[-1]>ccs[-2]:
+                gradient = (values[-1] - values[-2])/dist
+            else:
+                gradient = (values[-2] - values[-1])/dist
+            
+            if values[-2] !=0:
+                gradient_change = np.abs(gradient/values[-2])
+            else:
+                gradient_change = np.abs(gradient)
+            
+            if gradient>0:
+                if theta <= 0:
+                    theta -= 1
+                else:
+                    theta = -1
+                    
+            else:
+                if theta >= 0:
+                    theta += 1
+                else:
+                    theta = 1
+        
+
+            update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
+            next_cc = min(max(ccs[-1] + update_cc, 2), max_thread)
+            logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
+            ccs.append(next_cc)
+
+
 def signal_handling(signum,frame):
     global terminate
     terminate = True
@@ -122,5 +169,5 @@ if __name__ == '__main__':
         print ("Connected", address)
         # now do something with the clientsocket
         # in this case, we'll pretend this is a threaded server
-        t = Thread(target=gradient, args=((sock, harp_response)))
+        t = Thread(target=gradient, args=((sock, harp_response))) # target=gradient_fast
         t.start()
