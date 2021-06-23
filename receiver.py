@@ -36,7 +36,7 @@ def worker(sock):
                 if file_transfer:
                     file_stats = header.split(",")
                     filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
-                    fd = os.open(root + filename, os.O_DIRECT | os.O_RDWR | os.O_CREAT)
+                    fd = os.open(root + filename) #, os.O_DIRECT | os.O_RDWR | os.O_CREAT
                     os.lseek(fd, offset, os.SEEK_SET)
                     # file = open(root + filename, "wb+")
                     # file.seek(offset)
