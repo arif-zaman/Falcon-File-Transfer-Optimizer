@@ -1,0 +1,9 @@
+joblib==1.0.1
+numpy==1.19.5
+pkg-resources==0.0.0
+pyaml==20.4.0
+PyYAML==5.4.1
+scikit-learn==0.24.2
+scikit-optimize==0.8.1
+scipy==1.5.4
+threadpoolctl==2.1.0
