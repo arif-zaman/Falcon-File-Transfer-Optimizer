@@ -15,9 +15,9 @@ configurations = {
     "emulab_test": False,
     "file_transfer": True,
     "B": 10,
-    "K": 1.02,
+    "K": 1.04,
     "loglevel": "info",
-    "probing_sec": 5,
+    "probing_sec": 3,
     "multiplier": 1,
     "mp_opt": False,
     "fixed_probing": {
