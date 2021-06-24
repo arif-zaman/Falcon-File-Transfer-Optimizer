@@ -31,7 +31,7 @@ recv_buffer_size = 8192
   
 
 def harp_response(params):
-    global sock
+    global opt_server
     params = [int(x) for x in params]
     
     n = params[0]
@@ -45,11 +45,11 @@ def harp_response(params):
         
     logger.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     thrpt = 0
-    sock.sendall(output.encode('utf-8'))
+    opt_server.sendall(output.encode('utf-8'))
     
     while True:
         try:
-            message  = sock.recv(recv_buffer_size).decode()
+            message  = opt_server.recv(recv_buffer_size).decode()
             thrpt = float(message) if message != "" else -1
             if thrpt is not None:
                 break
@@ -58,7 +58,7 @@ def harp_response(params):
             logger.exception(e)
                 
     if thrpt == -1:
-        sock.sendall("".encode('utf-8'))
+        opt_server.sendall("".encode('utf-8'))
         score = thrpt
     else:
         score = (thrpt/(1.02)**n) * (-1)
@@ -123,7 +123,7 @@ signal.signal(signal.SIGINT,signal_handling)
 
 
 if __name__ == '__main__':
-    max_cc, sock = 100, None
+    max_cc, opt_server = 100, None
     HOST, PORT = "localhost", 32000
     serversock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     serversock.bind((HOST, PORT))
@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
     while True:
         print ("Waiting")
-        (sock, address) = serversock.accept()
+        (opt_server, address) = serversock.accept()
         print ("Connected", address)
         # now do something with the clientsocket
         # in this case, we'll pretend this is a threaded server
@@ -139,4 +139,4 @@ if __name__ == '__main__':
         # t = Thread(target=base_optimizer, args=((harp_response,)))
         # t.start()
     
-        sock.close()
+        opt_server.close()

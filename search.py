@@ -341,7 +341,7 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
 
             update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
             next_cc = min(max(ccs[-1] + update_cc, 2), soft_limit)
-            print("curr limit: ", least_cost, soft_limit)
+            # print("curr limit: ", least_cost, soft_limit)
             logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
             ccs.append(next_cc)
 

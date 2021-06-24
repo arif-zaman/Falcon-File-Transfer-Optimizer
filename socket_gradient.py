@@ -25,7 +25,7 @@ logger.basicConfig(format=log_FORMAT,
 
 recv_buffer_size = 8192
 
-def harp_response(sock, params, count):
+def harp_response(opt_server, params, count):
     global max_cc
     cc = params[0]
     logger.info("Iteration {0} Starts ...".format(count))
@@ -33,11 +33,11 @@ def harp_response(sock, params, count):
     thrpt = 0
     
     output = str(cc) + "\n"
-    sock.sendall(output.encode('utf-8'))
+    opt_server.sendall(output.encode('utf-8'))
     #print (output, flush=True)
     while True:
         try:
-            message  = sock.recv(recv_buffer_size).decode()
+            message  = opt_server.recv(recv_buffer_size).decode()
             thrpt = float(message)
             print ("CC {} \t Throughput {}".format(cc, thrpt))
             
@@ -49,7 +49,9 @@ def harp_response(sock, params, count):
             return -1
                 
     if thrpt == -1:
-        score = thrpt
+        opt_server.close()
+        logger.info("Optimizer Exits ...")
+        exit(1)
     else:
         # cc_factor = (cc - 1)/max_cc
         # score = np.round(thrpt * (1 - cc_factor) * (-1))
@@ -60,7 +62,7 @@ def harp_response(sock, params, count):
     return score
 
 
-def gradient(sock, black_box_function):
+def gradient(opt_server, black_box_function):
     max_thread, count = max_cc, 0
     soft_limit, least_cost = max_thread, 0
     values = []
@@ -68,20 +70,12 @@ def gradient(sock, black_box_function):
     theta = 0
 
     while True:
-        values.append(black_box_function(sock, [ccs[-1]-1], count+1))
-        if values[-1] == 10 ** 10:
-            logger.info("Optimizer Exits ...")
-            break
-        
+        values.append(black_box_function(opt_server, [ccs[-1]-1], count+1)) 
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
         
-        values.append(black_box_function(sock, [ccs[-1]+1], count+2))
-        if values[-1] == 10 ** 10:
-            logger.info("Optimizer Exits ...")
-            break
-        
+        values.append(black_box_function(opt_server, [ccs[-1]+1], count+2))
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
@@ -108,7 +102,7 @@ def gradient(sock, black_box_function):
         ccs.append(next_cc)
 
 
-def gradient_fast(sock, black_box_function):
+def gradient_fast(opt_server, black_box_function):
     max_thread, count = max_cc, 0
     soft_limit, least_cost = max_thread, 0
     values = []
@@ -117,12 +111,7 @@ def gradient_fast(sock, black_box_function):
 
     while True:
         count += 1
-        values.append(black_box_function(sock, [ccs[-1]], count+1))
-
-        if values[-1] == 10 ** 10:
-            logger.info("Optimizer Exits ...")
-            break
-
+        values.append(black_box_function(opt_server, [ccs[-1]], count+1))
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
@@ -178,9 +167,9 @@ if __name__ == '__main__':
 
     while True:
         print ("Waiting")
-        (sock, address) = serversock.accept()
+        (opt_server, address) = serversock.accept()
         print ("Connected", address)
         # now do something with the clientsocket
         # in this case, we'll pretend this is a threaded server
-        t = Thread(target=gradient, args=((sock, harp_response))) # target=gradient_fast
+        t = Thread(target=gradient_fast, args=((opt_server, harp_response))) # target=gradient
         t.start()
