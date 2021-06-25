@@ -231,8 +231,8 @@ def sample_transfer(params):
     cc_impact_lin = (K-1) * num_workers.value
     plr_impact = B*lr
     # score = thrpt
-    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
-    #score = thrpt * (1- plr_impact - cc_impact_lin)
+    # score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    score = thrpt * (1- plr_impact - cc_impact_lin)
     score_value = np.round(score * (-1))
     
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
@@ -311,8 +311,9 @@ def report_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             throughput_logs.append(curr_thrpt)
-            log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
-                time_since_begining, curr_thrpt, thrpt))
+            m_avg = np.round(np.mean(throughput_logs[-60:]), 2)
+            log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps, 60Sec_Average: {3}Mbps".format(
+                time_since_begining, curr_thrpt, thrpt, m_avg))
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 

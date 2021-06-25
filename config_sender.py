@@ -6,7 +6,7 @@ configurations = {
     "data_dir": "/data/src_dir/",
     "method": "gradient", #[gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
-        "initial_run": 5,
+        "initial_run": 3,
         "num_of_exp": -1
     },
     "random": {
@@ -15,7 +15,7 @@ configurations = {
     "emulab_test": False,
     "file_transfer": True,
     "B": 10,
-    "K": 1.04,
+    "K": 1.02,
     "loglevel": "info",
     "probing_sec": 3,
     "multiplier": 1,
