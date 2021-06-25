@@ -1,11 +1,10 @@
 """
 # please install scikit-optimize
-# provide HOST, PORT of the server in main functions
-1. send message: "start" to start the optmizer
-2. it will send back parameters value (format: cc,pp,pipeline,blocksize) for probing, 
-    for example: "1,1,4,6" and will wait for throughput value
-3. send back throughput values in Mbps, for example: "10000.07"
-4. send "-1" to terminate the optimizer
+# provide HOST, PORT of the opt_server in main functions
+# it will send back parameters value (format: cc,pp,pipeline) for probing,
+    for example: "1,1,4" and will wait for throughput value
+# send back throughput values in Mbps, for example: "10000.07"
+# send "-1" to terminate the optimizer
 """
 import warnings
 warnings.filterwarnings('ignore')
@@ -36,12 +35,12 @@ def harp_response(params):
     
     n = params[0]
     # format >> "Concurrency"
-    output = "{0}".format(params[0])
+    output = "{0}\n".format(params[0])
     
     if len(params) > 1:
         n = params[0] * params[1]
-        # format >> "Concurrency,Parallesism,Pipeline,Chunk/Block Size"
-        output = "{0},{1},{2},{3}".format(params[0],params[1],params[2],params[3])
+        # format >> "Concurrency,Parallesism,Pipeline"
+        output = "{0},{1},{2}\n".format(params[0],params[1],params[2])
         
     logger.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     thrpt = 0
@@ -58,7 +57,6 @@ def harp_response(params):
             logger.exception(e)
                 
     if thrpt == -1:
-        opt_server.sendall("".encode('utf-8'))
         score = thrpt
     else:
         score = (thrpt/(1.02)**n) * (-1)
@@ -70,14 +68,13 @@ def harp_response(params):
 
 def base_optimizer(black_box_function, mp_opt=False):
     global max_cc
-    limit_obs, count, init_points = 100, 0, 8 if mp_opt else 3
+    limit_obs, count, init_points = 30, 0, 6 if mp_opt else 5
     
     if mp_opt:
         search_space  = [
-            Integer(1, max_cc), # Concurrency
-            Integer(1, 32), # Parallesism
-            Integer(1, 32), # Pipeline
-            Integer(0, 20), # Chunk/Block Size: power of 2
+            Integer(1, 32), # Concurrency
+            Integer(1, 4), # Parallesism
+            Integer(1, 10), # Pipeline
             ]
     else:
         search_space  = [
@@ -134,9 +131,5 @@ if __name__ == '__main__':
         (opt_server, address) = serversock.accept()
         print ("Connected", address)
         # now do something with the clientsocket
-        # in this case, we'll pretend this is a threaded server
         base_optimizer(harp_response)
-        # t = Thread(target=base_optimizer, args=((harp_response,)))
-        # t.start()
-    
         opt_server.close()

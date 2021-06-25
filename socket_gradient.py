@@ -5,8 +5,6 @@
 # send "-1" to terminate the optimizer
 """
 import warnings
-
-from numpy.lib.function_base import gradient
 warnings.filterwarnings('ignore')
 
 import socket
@@ -34,19 +32,18 @@ def harp_response(opt_server, params, count):
     
     output = str(cc) + "\n"
     opt_server.sendall(output.encode('utf-8'))
-    #print (output, flush=True)
+
     while True:
         try:
             message  = opt_server.recv(recv_buffer_size).decode()
-            thrpt = float(message)
-            print ("CC {} \t Throughput {}".format(cc, thrpt))
+            thrpt =  -1 if message == "" else float(message)
             
             if thrpt is not None:
                 break
             
         except Exception as e:
             logger.exception(e)
-            return -1
+            thrpt = -1
                 
     if thrpt == -1:
         opt_server.close()
@@ -111,7 +108,7 @@ def gradient_fast(opt_server, black_box_function):
 
     while True:
         count += 1
-        values.append(black_box_function(opt_server, [ccs[-1]], count+1))
+        values.append(black_box_function(opt_server, [ccs[-1]], count))
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
