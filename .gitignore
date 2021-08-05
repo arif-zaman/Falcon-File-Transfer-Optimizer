@@ -67,7 +67,7 @@ instance/
 docs/_build/
 
 # PyBuilder
-target/
+# target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -108,5 +108,4 @@ config.py
 data/
 .vscode
 **/*.log
-emulab_simulation2.py
-emulab_simulation.py
+**simulation**

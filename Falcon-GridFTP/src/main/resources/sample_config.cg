@@ -1,0 +1,14 @@
+# Use gsiftp// for gsi authenticated end points and ftp:// for the rest
+-s gsiftp://source-ip:source-port/path/to/transfer/dataset
+-d gsiftp://destination-ip:destination-port/path/to/transfer/dataset
+# RTT in milliseconds, below one is for 46 ms RTT
+-rtt 46
+# Bandwidth in Gbps, below one is for 10Gbps network bandwidth
+-bandwidth 10
+# Buffer size in MB, below one is for 32 MB maximum TCP buffer size
+-buffer-size 32
+-maxcc 10
+#Enables HARP as described https://ieeexplore.ieee.org/abstract/document/7877103
+-use-hysteresis
+#Enables HARP with continous tuning as described in https://ieeexplore.ieee.org/abstract/document/8249824
+-use-online-tuning

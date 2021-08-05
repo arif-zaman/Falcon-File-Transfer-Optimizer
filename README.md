@@ -3,7 +3,7 @@ The application can only correctly function on Linux-based operating systems due
     
 Please use python3 and install necessary packages using the requirements.txt file, preferably in a virtual environment, to avoid package version conflicts. For GridFTP client optimization, please follow the link below. 
     
-GridFTP version - https://github.com/arif-zaman/Falcon-GridFTP
+GridFTP version: Please checkout `Falcon-GridFTP` directory
     
 
 ## Usage
