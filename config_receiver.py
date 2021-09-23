@@ -1,10 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "10.10.2.2",
+        "host": "127.0.0.1",
         "port": 50021
     },
-    "data_dir": "/data/dest_dir/",
-    "max_cc": 100,
+    "data_dir": "/home/mbadhan/data/receive/",
+    "max_cc": 15,
     "file_transfer": True,
     "loglevel": "info",
 }
