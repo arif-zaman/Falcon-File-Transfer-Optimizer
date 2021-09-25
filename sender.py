@@ -182,11 +182,12 @@ def worker(process_id, q):
                 pass
                 
             except Exception as e:
+                process_status[process_id] = 0
                 log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
             
             log.debug("End Process :: {0}".format(process_id))
     
-    process_status[process_id] == 0
+    process_status[process_id] = 0
 
 
 def sample_transfer(params):
@@ -228,11 +229,11 @@ def sample_transfer(params):
         lr = rc/sc if sc>rc else 0
     
     cc_impact_nl = K**num_workers.value
-    cc_impact_lin = (K-1) * num_workers.value
+    # cc_impact_lin = (K-1) * num_workers.value
     plr_impact = B*lr
     # score = thrpt
-    # score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
-    score = thrpt * (1- plr_impact - cc_impact_lin)
+    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    # score = thrpt * (1- plr_impact - cc_impact_lin)
     score_value = np.round(score * (-1))
     
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
@@ -302,7 +303,7 @@ def report_throughput(start_time):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
         
-        if time_since_begining > 0:
+        if time_since_begining >= 1:
             total_bytes = np.sum(file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
             
