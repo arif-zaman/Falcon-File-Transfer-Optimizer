@@ -13,11 +13,11 @@
 
 ## Usage
 
-1. cd into Falcon-GridFTP and run `mvn compile; mvn install` if you face test failures, add `-DskipTests` option to commands
-2. run `mvn compile` 
-3. cd into src/main/python and run `python3 socket_gradient.py`
+1. cd into Falcon-GridFTP and run `mvn compile; mvn install -DskipTests`
+2. cd into AdaptiveGridFTPClient and run `mvn compile; mvn install` 
+3. Open another terminal and cd into src/main/python and run `python3 socket_gradient.py`
 4. Add a configuration file (config.cfg) in src/main/resources/ and edit as described below. See the sample config file in  src/main/resources/sample_config.cfg
-5. Run `mvn exec:java` to run the code
+5. cd into AdaptiveGridFTPClient and run `mvn exec:java` to run the code
 
 ## Configuration File
   **-s** $Source_GridFTP_Server  

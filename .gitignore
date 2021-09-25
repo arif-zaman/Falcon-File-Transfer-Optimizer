@@ -109,3 +109,24 @@ data/
 .vscode
 **/*.log
 **simulation**
+target
+test-output
+*.iml
+*.rej
+*.diff
+*.orig
+.idea
+.project
+.classpath
+.settings
+.idea~
+.project~
+.classpath~
+.settings~
+.gitignore~
+*.java~
+*.xml~
+# *.csv
+*.txt
+*.log
+.DS_Store
