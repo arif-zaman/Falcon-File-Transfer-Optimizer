@@ -2,6 +2,7 @@
 
 import socket
 import os
+import subprocess as sp
 import numpy as np
 import time
 import warnings
@@ -82,6 +83,7 @@ def tcp_stats():
     sent, retm = 0, 0
     
     try:
+        sp.check_output("ss -ti", shell=True)
         data = os.popen("ss -ti").read().split("\n")
         for i in range(1,len(data)):
             if RCVR_ADDR in data[i-1]:
@@ -92,15 +94,17 @@ def tcp_stats():
 
                     if "bytes_retrans" in entry:
                         pass
-                        
+
                     elif "retrans" in entry:
                         retm += int(entry.split("/")[-1])
                 
     except Exception as e:
         print(e)
+        exit(1)
 
     end = time.time()
     log.debug("Time taken to collect tcp stats: {0}ms".format(np.round((end-start)*1000)))
+
     return sent, retm
  
 
