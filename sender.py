@@ -13,6 +13,40 @@ from threading import Thread
 from config_sender import configurations
 from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_opt_fast
 
+import parsl
+
+from parsl.app.app import python_app, bash_app
+from parsl.configs.local_threads import config
+
+
+parsl.load(config)
+
+print(config)
+print(configurations)
+
+# @python_app
+# def hello ():
+#     return 'Hello World!'
+#
+# @python_app
+# def slow_hello ():
+#     import time
+#     time.sleep(5)
+#     return 'Hello World!'
+# print("hello")
+# print(slow_hello().result())
+
+# @bash_app
+# def echo_hello(stdout='echo-hello.stdout', stderr='echo-hello.stderr'):
+#     return 'ls -ltr'
+#
+# echo_hello().result()
+#
+# with open('echo-hello.stdout', 'r') as f:
+#      print(f.read())
+
+#exit(1)
+
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
 configurations["thread_limit"] = configurations["max_cc"]
@@ -107,8 +141,9 @@ def tcp_stats():
 
     return sent, retm
  
-
+@python_app
 def worker(process_id, q):
+    print("file_incomplete.value ",file_incomplete.value )
     while file_incomplete.value > 0:
         if process_status[process_id] == 0:
             pass
@@ -191,6 +226,7 @@ def worker(process_id, q):
             log.debug("End Process :: {0}".format(process_id))
     
     process_status[process_id] == 0
+    return process_id
 
 
 def sample_transfer(params):
@@ -296,13 +332,14 @@ def run_transfer():
     if file_incomplete.value > 0:
         normal_transfer(params)
     
-
+@python_app
 def report_throughput(start_time):
     global throughput_logs
     previous_total = 0
     previous_time = 0
-
+    print("-------------------------------", file_incomplete.value)
     while file_incomplete.value > 0:
+        print("-------------------------------",file_incomplete.value)
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
         
@@ -327,15 +364,22 @@ if __name__ == '__main__':
     for i in range(file_count):
         q.put(i)
         
-    workers = [mp.Process(target=worker, args=(i, q)) for i in range(configurations["thread_limit"])]
-    for p in workers:
-        p.daemon = True
-        p.start()
-    
+    # workers = [mp.Process(target=worker, args=(i, q)) for i in range(configurations["thread_limit"])]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
+
+
+    workers = []
+    for i in range(configurations["thread_limit"]):
+        workers.append(worker(i, q))
+
+    print("Job Status: {}".format([r.done() for r in workers]))
     start = time.time()
-    reporting_process = mp.Process(target=report_throughput, args=(start,))
-    reporting_process.daemon = True
-    reporting_process.start()
+    reporting_process=report_throughput(start)
+    # reporting_process = mp.Process(target=report_throughput, args=(start,))
+    # reporting_process.daemon = True
+    # reporting_process.start()
     run_transfer()
     end = time.time()
             
@@ -344,9 +388,8 @@ if __name__ == '__main__':
     thrpt = np.round((total*8*1024)/time_since_begining,2)
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
         total, time_since_begining, thrpt))
-    
-    reporting_process.terminate()
+    print("Job Status: {}".format([r.done() for r in workers]))
+    print(reporting_process.done())
+
     for p in workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
+        print(p.result())
