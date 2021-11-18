@@ -4,7 +4,7 @@ configurations = {
         "port": 50021
     },
     "data_dir": "/home/mbadhan/data/send/",
-    "method": "brute", #[gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "probe", #[gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1
@@ -18,11 +18,11 @@ configurations = {
     "K": 1.02,
     "loglevel": "info",
     "probing_sec": 3,
-    "multiplier": 2,
+    "multiplier": 1,
     "mp_opt": False,
     "fixed_probing": {
         "bsize": 7,
-        "thread": 4
+        "thread": 1
     },
-    "max_cc": 15,
+    "max_cc": 1,
 }
