@@ -38,7 +38,7 @@ def read_files(time_p, inputs=[]):
 @python_app
 def harp_file_transfer(file_name):
     # print (file_name)
-    harp_file = File('falcon://127.0.0.1/inputs/' + str(file_name))
+    harp_file = File('falcon://127.0.0.1/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/')
     return harp_file
 
 

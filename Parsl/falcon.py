@@ -7,6 +7,7 @@ import parsl
 from parsl.utils import RepresentationMixin
 from parsl.data_provider.staging import Staging
 
+from sender import report_throughput, initialize_transfer, Fs
 
 logger = logging.getLogger(__name__)
 
@@ -51,14 +52,17 @@ def in_task_transfer_wrapper(func, file, working_dir):
 
 def _ftp_stage_in(working_dir, parent_fut=None, outputs=[], _parsl_staging_inhibit=True):
     file = outputs[0]
-    if working_dir:
-        os.makedirs(working_dir, exist_ok=True)
-    with open(file.local_path, 'wb') as f:
-        ftp = ftplib.FTP(file.netloc)
-        ftp.login()
-        ftp.cwd(os.path.dirname(file.path))
-        ftp.retrbinary('RETR {}'.format(file.filename), f.write)
-        ftp.quit()
+    print(file.path)
+    fs = Fs(file.path,"127.0.0.1", 50021,1)
+    initialize_transfer(fs)
+    # if working_dir:
+    #     os.makedirs(working_dir, exist_ok=True)
+    # with open(file.local_path, 'wb') as f:
+    #     ftp = ftplib.FTP(file.netloc)
+    #     ftp.login()
+    #     ftp.cwd(os.path.dirname(file.path))
+    #     ftp.retrbinary('RETR {}'.format(file.filename), f.write)
+    #     ftp.quit()
 
 
 
