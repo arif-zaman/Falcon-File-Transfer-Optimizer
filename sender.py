@@ -81,6 +81,7 @@ else:
 class Fs:
     def __init__(self, vroot,vhost,vport, multiplier):
         self.root = vroot
+
         self.file_names = os.listdir(self.root) * multiplier
         self.file_sizes = [os.path.getsize(self.root + filename) for filename in self.file_names]
         self.file_count = len(self.file_names)
@@ -107,6 +108,24 @@ class Fs:
         self.file_transfer = True
         if "file_transfer" in configurations and configurations["file_transfer"] is not None:
             self.file_transfer = configurations["file_transfer"]
+
+    def initialoze_queue(self):
+        self.q = self.manager.Queue()
+        for i in range(self.file_count):
+            self.q.put(i)
+        print(self.q.qsize(), self.file_count)
+
+    def append_queue(self):
+
+        for i in range(self.file_count):
+            self.q.put(i)
+        print(self.q.qsize(), self.file_count)
+
+    def is_finish(self):
+        print(self.q.qsize())
+
+        return True if self.q.qsize()==0 else False
+
 
 def tcp_stats():
     global RCVR_ADDR
@@ -136,7 +155,7 @@ def tcp_stats():
     return sent, retm
 
 
-def worker(process_id, q,fs):
+def worker(process_id, fs):
     while fs.file_incomplete.value > 0:
         if fs.process_status[process_id] == 0:
             pass
@@ -155,9 +174,9 @@ def worker(process_id, q,fs):
                     max_speed = (target * 1000 * 1000) / 8
                     second_target, second_data_count = int(max_speed / factor), 0
 
-                while (not q.empty()) and (fs.process_status[process_id] == 1):
+                while (not fs.q.empty()) and (fs.process_status[process_id] == 1):
                     try:
-                        file_id = q.get()
+                        file_id = fs.q.get()
                     except:
                         fs.process_status[process_id] = 0
                         break
@@ -204,7 +223,7 @@ def worker(process_id, q,fs):
                                     timer100ms = time.time()
 
                     if to_send > 0:
-                        q.put(file_id)
+                        fs.q.put(file_id)
                     else:
                         fs.file_incomplete.value = fs.file_incomplete.value - 1
 
@@ -350,13 +369,11 @@ def report_throughput(start_time,fs):
             t2 = time.time()
             time.sleep(max(0, 1 - (t2 - t1)))
 
+
 def initialize_transfer(fs):
-
-    q = fs.manager.Queue(maxsize=fs.file_count)
-    for i in range(fs.file_count):
-        q.put(i)
-
-    workers = [mp.Process(target=worker, args=(i, q,fs)) for i in range(configurations["thread_limit"])]
+    fs.initialoze_queue()
+    fs.is_finish()
+    workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
     for p in workers:
         p.daemon = True
         p.start()
@@ -381,41 +398,16 @@ def initialize_transfer(fs):
             p.join(timeout=0.1)
 if __name__ == '__main__':
 
-    print('Number of arguments:', len(sys.argv), 'arguments.')
-    print('Argument List:', str(sys.argv))
-    print(len(sys.argv),sys.argv[len(sys.argv)-1])
-    if(len(sys.argv)==2):
-        dir= sys.argv[len(sys.argv)-1]
-    else:
-        dir = configurations["data_dir"]
-    log.info(dir)
+    # # print('Number of arguments:', len(sys.argv), 'arguments.')
+    # # print('Argument List:', str(sys.argv))
+    # # print(len(sys.argv),sys.argv[len(sys.argv)-1])
+    # if(len(sys.argv)==2):
+    #     dir= sys.argv[len(sys.argv)-1]
+    # else:
+    #     dir = configurations["data_dir"]
+    # log.info(dir)
     fs = Fs(configurations["data_dir"], configurations["receiver"]["host"], configurations["receiver"]["port"], configurations["multiplier"])
+
     initialize_transfer(fs)
-    #
-    # q = fs.manager.Queue(maxsize=fs.file_count)
-    # for i in range(fs.file_count):
-    #     q.put(i)
-    #
-    # workers = [mp.Process(target=worker, args=(i, q)) for i in range(configurations["thread_limit"])]
-    # for p in workers:
-    #     p.daemon = True
-    #     p.start()
-    #
-    # start = time.time()
-    # reporting_process = mp.Process(target=report_throughput, args=(start,))
-    # reporting_process.daemon = True
-    # reporting_process.start()
-    # run_transfer()
-    # end = time.time()
-    #
-    # time_since_begining = np.round(end - start, 3)
-    # total = np.round(np.sum(fs.file_offsets) / (1024 * 1024 * 1024), 3)
-    # thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
-    # log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-    #     total, time_since_begining, thrpt))
-    #
-    # reporting_process.terminate()
-    # for p in workers:
-    #     if p.is_alive():
-    #         p.terminate()
-    #         p.join(timeout=0.1)
+    fs.is_finish()
+

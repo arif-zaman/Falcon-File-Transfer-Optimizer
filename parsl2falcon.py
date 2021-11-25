@@ -36,20 +36,21 @@ def read_files(time_p, inputs=[]):
 
 
 @python_app
-def harp_file_transfer(file_name):
+def file_transfer(file_name):
     # print (file_name)
+    # harp_file = File('falcon://127.0.0.1/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/' + file_name)
     harp_file = File('falcon://127.0.0.1/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/')
     return harp_file
 
 
-files = ["foo1.txt"]
+files = ["foo4.txt"]
 # files=["foo1.txt","foo2.txt"]
 # files=["foo1.txt","foo2.txt","foo3.txt"]
-# files=["foo1.txt","foo2.txt","foo3.txt","foo4.txt"]
+#files=["foo1.txt","foo2.txt","foo3.txt","foo4.txt"]
 
 results = []
 for i in range(len(files)):
-    results.append(harp_file_transfer(files[i]))
+    results.append(file_transfer(files[i]))
 
 outputs = []
 curr = time.time()
