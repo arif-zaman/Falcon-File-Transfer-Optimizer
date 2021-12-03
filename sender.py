@@ -12,6 +12,7 @@ import numpy as np
 
 from config_sender import configurations
 from search import base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_opt_fast
+from multiprocessing.managers import BaseManager
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
@@ -44,55 +45,98 @@ else:
         ]
     )
 
-
-# emulab_test = False
-# if "emulab_test" in configurations and configurations["emulab_test"] is not None:
-#     emulab_test = configurations["emulab_test"]
-#
-# file_transfer = True
-# if "file_transfer" in configurations and configurations["file_transfer"] is not None:
-#     file_transfer = configurations["file_transfer"]
-
-
-# configurations["thread_limit"] = configurations["max_cc"]
-# configurations["cpu_count"] = mp.cpu_count()
-# if configurations["thread_limit"] == -1:
-#     configurations["thread_limit"] = configurations["cpu_count"]
-# manager = mp.Manager()
-# probing_time = configurations["probing_sec"]
-# throughput_logs = manager.list()
-# chunk_size = 1 * 1024 * 1024
-
-
-# num_workers = mp.Value("i", 0)
-# process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-
-# HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
-# RCVR_ADDR = str(HOST) + ":" + str(PORT)
-
-
-# root = configurations["data_dir"]
-# file_names = os.listdir(root) * configurations["multiplier"]
-# file_sizes = [os.path.getsize(root + filename) for filename in file_names]
-# file_count = len(file_names)
-# file_incomplete = mp.Value("i", file_count)
-# file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-class Fs:
-    def __init__(self, vhost, vport):
-        # self.root = vroot
-        #
-        # self.file_names = os.listdir(self.root) * multiplier
-        # self.file_sizes = [os.path.getsize(self.root + filename) for filename in self.file_names]
-        # self.file_count = len(self.file_names)
-        # self.file_incomplete = mp.Value("i", self.file_count)
-        # self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
-
+class SimpleClass(object):
+    def __init__(self):
         self.root = []
         self.file_names = []
         self.file_sizes = []
         self.file_count = 2
         self.file_incomplete = mp.Value("i", self.file_count)
         self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
+
+    def get_root(self):
+        return self.root
+
+    def get_file_names(self):
+        return self.file_names
+
+    def get_file_sizes(self):
+        return self.file_sizes
+
+    def get_file_count(self):
+        return self.file_count
+
+    def get_file_incomplete(self):
+        return self.file_incomplete.value
+
+    def get_file_offsets(self):
+        return self.file_offsets
+
+    def set_root(self,a):
+        self.root=a
+
+    def set_file_names(self,a):
+        self.file_names=a
+
+    def set_file_sizes(self,a):
+        self.file_sizes=a
+
+    def set_file_count(self,a):
+        self.file_count=a
+
+    def set_file_incomplete(self,a):
+        self.file_incomplete.value=a
+
+    def set_file_offsets(self,a,offset):
+        self.file_offsets[a]=offset
+
+    def set(self, vroot):
+        print(vroot)
+        file_names = os.listdir(vroot)
+        file_sizes = [os.path.getsize(vroot + filename) for filename in file_names]
+        file_count = len(os.listdir(vroot))
+
+        # for i in range(self.file_count, self.file_count + file_count):
+        #     self.q.put(i)
+
+        self.file_incomplete = mp.Value("i", self.file_incomplete.value + file_count)
+        self.file_offsets = mp.Array("d", [i for i in self.file_offsets] + [0.0 for i in range(file_count)])
+        self.file_names = self.file_names + file_names
+        self.file_sizes = self.file_sizes + file_sizes
+        self.file_count = self.file_count + file_count
+        self.root = self.root + [vroot for i in range(file_count)]
+        print("file_incomplete", self.file_incomplete)
+
+        # print("intital queue size", self.q.qsize(), self.file_count)
+        # self.q.task_done()
+
+    def get_file_offsets(self):
+        return self.file_offsets
+
+    def get_file_count(self):
+        return self.file_count
+
+    def print_state(self):
+        print("----------------------------")
+        print("root",self.root)
+        print("file_names",self.file_names)
+        print("file_sizes",self.file_sizes)
+        print("file_count",self.file_count)
+        print("file_incomplete",self.file_incomplete.value)
+        print("file_offsets",self.file_offsets)
+        print("----------------------------")
+
+
+
+
+
+class Fs:
+    def __init__(self, vhost, vport):
+
+        BaseManager.register('SimpleClass', SimpleClass)
+        manager = BaseManager()
+        manager.start()
+        self.filesIn = manager.SimpleClass()
 
         self.HOST, self.PORT = vhost, vport
         self.RCVR_ADDR = str(self.HOST) + ":" + str(self.PORT)
@@ -117,42 +161,31 @@ class Fs:
             self.file_transfer = configurations["file_transfer"]
         self.q = self.manager.Queue()
 
-    def add_to_queue(self, vroot, multiplier=1):
-        # time.sleep(10)
-        print(vroot)
-        file_names = os.listdir(vroot) * multiplier
-        file_sizes = [os.path.getsize(vroot + filename) for filename in file_names]
-        file_count = len(os.listdir(vroot) * multiplier)
-
-        for i in range(self.file_count, self.file_count + file_count):
+    def change_obj_value(self, path):
+        self.filesIn.set(path)
+        for i in range(self.q.qsize(), self.q.qsize() + self.filesIn.get_file_count()):
             self.q.put(i)
 
-        self.file_incomplete = mp.Value("i", self.file_incomplete.value + file_count)
-        self.file_offsets = mp.Array("d", [i for i in self.file_offsets] + [0.0 for i in range(file_count)])
-        self.file_names = self.file_names + file_names
-        self.file_sizes = self.file_sizes + file_sizes
-        self.file_count = self.file_count + file_count
-        self.root = self.root + [vroot for i in range(file_count)]
-        print("file_incomplete",self.file_incomplete)
-        self.is_finish()
-        print("intital queue size", self.q.qsize(), self.file_count)
-        self.q.task_done()
-
-
-    def append_queue(self):
-
-        for i in range(self.file_count):
-            self.q.put(i)
-        print(self.q.qsize(), self.file_count)
-
-    def is_finish(self):
-        print("finidhed check",time.time())
-        print("queue size",self.q.qsize())
-
-        print("file_names", self.file_incomplete)
-
-        return True if self.q.qsize() == 0 else False
-
+    # def add_to_queue(self, vroot, multiplier=1):
+    #     # time.sleep(10)
+    #     print(vroot)
+    #     file_names = os.listdir(vroot) * multiplier
+    #     file_sizes = [os.path.getsize(vroot + filename) for filename in file_names]
+    #     file_count = len(os.listdir(vroot) * multiplier)
+    #
+    #     for i in range(self.file_count, self.file_count + file_count):
+    #         self.q.put(i)
+    #
+    #     self.file_incomplete = mp.Value("i", self.file_incomplete.value + file_count)
+    #     self.file_offsets = mp.Array("d", [i for i in self.file_offsets] + [0.0 for i in range(file_count)])
+    #     self.file_names = self.file_names + file_names
+    #     self.file_sizes = self.file_sizes + file_sizes
+    #     self.file_count = self.file_count + file_count
+    #     self.root = self.root + [vroot for i in range(file_count)]
+    #     print("file_incomplete",self.file_incomplete)
+    #     self.is_finish()
+    #     print("intital queue size", self.q.qsize(), self.file_count)
+    #     self.q.task_done()
 
 def tcp_stats():
     global RCVR_ADDR
@@ -183,7 +216,10 @@ def tcp_stats():
 
 
 def worker(process_id, fs):
-    while fs.file_incomplete.value > 0:
+    print("fs" ,fs.process_status[process_id],fs.num_workers.value)
+    fs.filesIn.print_state()
+
+    while fs.filesIn.get_file_incomplete() > 0:
         if fs.process_status[process_id] == 0:
             pass
         else:
@@ -210,12 +246,12 @@ def worker(process_id, fs):
                         fs.process_status[process_id] = 0
                         break
 
-                    offset = fs.file_offsets[file_id]
-                    to_send = fs.file_sizes[file_id] - offset
+                    offset = fs.filesIn.get_file_offsets()[file_id]
+                    to_send = fs.filesIn.get_file_sizes()[file_id] - offset
                     if (to_send > 0) and (fs.process_status[process_id] == 1):
-                        filename = fs.root[file_id] + fs.file_names[file_id]
+                        filename = fs.filesIn.get_root()[file_id] + fs.filesIn.get_file_names()[file_id]
                         file = open(filename, "rb")
-                        msg = fs.file_names[file_id] + "," + str(int(offset))
+                        msg = fs.filesIn.get_file_names()[file_id] + "," + str(int(offset))
                         msg += "," + str(int(to_send)) + "\n"
                         sock.send(msg.encode())
 
@@ -241,7 +277,8 @@ def worker(process_id, fs):
 
                             offset += sent
                             to_send -= sent
-                            fs.file_offsets[file_id] = offset
+                            fs.filesIn.set_file_offsets(file_id,offset)
+                            # fs.file_offsets[file_id] = offset
                             log.debug("in {0}, {1}, {2}".format(process_id, file_id, filename))
                             if fs.emulab_test:
                                 second_data_count += sent
@@ -255,7 +292,8 @@ def worker(process_id, fs):
                     if to_send > 0:
                         fs.q.put(file_id)
                     else:
-                        fs.file_incomplete.value = fs.file_incomplete.value - 1
+                        fs.filesIn.set_file_incomplete(fs.filesIn.get_file_incomplete()-1)
+                        # fs.file_incomplete.value = fs.file_incomplete.value - 1
 
                 sock.close()
 
@@ -333,7 +371,7 @@ def normal_transfer(params, fs):
     for i in range(fs.num_workers.value):
         fs.process_status[i] = 1
 
-    while (np.sum(fs.process_status) > 0) and (fs.file_incomplete.value > 0):
+    while (np.sum(fs.process_status) > 0) and (fs.filesIn.get_file_incomplete() > 0):
         pass
 
 
@@ -371,7 +409,7 @@ def run_transfer(fs):
         log.info("Running Bayesian Optimization .... ")
         params = base_optimizer(configurations, sample_transfer, log)
 
-    if fs.file_incomplete.value > 0:
+    if fs.filesIn.get_file_incomplete()  > 0:
         normal_transfer(params, fs)
 
 
@@ -380,7 +418,7 @@ def report_throughput(start_time, fs):
     previous_total = 0
     previous_time = 0
 
-    while fs.file_incomplete.value > 0:
+    while fs.filesIn.file_incomplete.value > 0:
         t1 = time.time()
         time_since_begining = np.round(t1 - start_time, 1)
 
@@ -405,6 +443,7 @@ class Workers:
         self.workers = []
 
     def start_workers(self, worker, fs, theads_count=1):
+        print("whats the matter")
         self.workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
         for p in self.workers:
             p.daemon = True
@@ -425,8 +464,7 @@ class Workers:
 
 
 def initialize_transfer(fs):
-    # fs.initialoze_queue()
-    fs.is_finish()
+
     # workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
     # for p in workers:
     #     p.daemon = True
@@ -435,20 +473,20 @@ def initialize_transfer(fs):
 
     jb.start_workers(worker, fs)
     print("running workers", jb.running_workers())
-    start = time.time()
-    reporting_process = mp.Process(target=report_throughput, args=(start, fs))
-    reporting_process.daemon = True
-    reporting_process.start()
+    # start = time.time()
+    # reporting_process = mp.Process(target=report_throughput, args=(start, fs))
+    # reporting_process.daemon = True
+    # reporting_process.start()
     run_transfer(fs)
-    end = time.time()
-
-    time_since_begining = np.round(end - start, 3)
-    total = np.round(np.sum(fs.file_offsets) / (1024 * 1024 * 1024), 3)
-    thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
-    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-        total, time_since_begining, thrpt))
-    print("running workers", jb.running_workers())
-    reporting_process.terminate()
+    # end = time.time()
+    #
+    # time_since_begining = np.round(end - start, 3)
+    # total = np.round(np.sum(fs.file_offsets) / (1024 * 1024 * 1024), 3)
+    # thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
+    # log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+    #     total, time_since_begining, thrpt))
+    # print("running workers", jb.running_workers())
+    # reporting_process.terminate()
     jb.stop_workers()
     print("running workers", jb.running_workers())
     # for p in workers:
@@ -458,29 +496,36 @@ def initialize_transfer(fs):
 
 
 if __name__ == '__main__':
-    # # print('Number of arguments:', len(sys.argv), 'arguments.')
-    # # print('Argument List:', str(sys.argv))
-    # # print(len(sys.argv),sys.argv[len(sys.argv)-1])
-    # if(len(sys.argv)==2):
-    #     dir= sys.argv[len(sys.argv)-1]
-    # else:
-    #     dir = configurations["data_dir"]
-    # log.info(dir)
+
     fs = Fs(configurations["receiver"]["host"], configurations["receiver"]["port"])
 
     # fs.add_to_queue(configurations["data_dir"])
     time1 = time.time_ns()
-    put_files = mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"],))
-    put_files.start()
-    print("1",fs.is_finish())
-    put_files.join()
-    print(f"time is {time.time_ns() - time1}")
+    # put_files = mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"],))
+    # put_files.start()
+    # put_files.join()
+    # p = mp.Process(target=fs.change_obj_value, args=(configurations["data_dir"],))
+    # p.start()
+    # p.join()
 
-    print("mid",fs.is_finish())
+    # fs.filesIn.print_state()
+    fs.change_obj_value(configurations["data_dir"])
+    print(f"time is {time.time_ns() - time1}")
     # mp.Process(target=fs.add_to_queue, args=(dir))
     initialize_transfer(fs)
 
     # mp.Process(target=fs.add_to_queue, args=(dir))
     # mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"]))
     # fs.add_to_queue("/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/")
-    print("last",fs.is_finish())
+
+
+
+    #
+    # p = mp.Process(target=fs.change_obj_value, args=(configurations["data_dir"],))
+    # p.start()
+    # p.join()
+    # fs.filesIn.print_state()
+    # p2 = mp.Process(target=fs.change_obj_value, args=("/home/muku/PycharmProjects/Falcon-File-Transfer-Optimizer/inputs/",))
+    # p2.start()
+    # p2.join()
+    # fs.filesIn.print_state()

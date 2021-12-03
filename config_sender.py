@@ -3,7 +3,7 @@ configurations = {
         "host": "127.0.0.1",
         "port": 50021
     },
-    "data_dir": "/home/mbadhan/data/send/",
+    "data_dir": "/home/muku/data/send/",
     "method": "probe", #[gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
@@ -16,7 +16,7 @@ configurations = {
     "file_transfer": True,
     "B": 10,
     "K": 1.02,
-    "loglevel": "info",
+    "loglevel": "debug",
     "probing_sec": 3,
     "multiplier": 1,
     "mp_opt": False,
