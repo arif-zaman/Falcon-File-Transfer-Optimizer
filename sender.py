@@ -5,7 +5,6 @@ import logging as log
 import multiprocessing as mp
 import os
 import socket
-import sys
 import time
 import warnings
 
@@ -45,6 +44,7 @@ else:
         ]
     )
 
+
 # emulab_test = False
 # if "emulab_test" in configurations and configurations["emulab_test"] is not None:
 #     emulab_test = configurations["emulab_test"]
@@ -52,7 +52,6 @@ else:
 # file_transfer = True
 # if "file_transfer" in configurations and configurations["file_transfer"] is not None:
 #     file_transfer = configurations["file_transfer"]
-
 
 
 # configurations["thread_limit"] = configurations["max_cc"]
@@ -79,14 +78,22 @@ else:
 # file_incomplete = mp.Value("i", file_count)
 # file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
 class Fs:
-    def __init__(self, vroot,vhost,vport, multiplier):
-        self.root = vroot
+    def __init__(self, vhost, vport):
+        # self.root = vroot
+        #
+        # self.file_names = os.listdir(self.root) * multiplier
+        # self.file_sizes = [os.path.getsize(self.root + filename) for filename in self.file_names]
+        # self.file_count = len(self.file_names)
+        # self.file_incomplete = mp.Value("i", self.file_count)
+        # self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
 
-        self.file_names = os.listdir(self.root) * multiplier
-        self.file_sizes = [os.path.getsize(self.root + filename) for filename in self.file_names]
-        self.file_count = len(self.file_names)
+        self.root = []
+        self.file_names = []
+        self.file_sizes = []
+        self.file_count = 2
         self.file_incomplete = mp.Value("i", self.file_count)
         self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
+
         self.HOST, self.PORT = vhost, vport
         self.RCVR_ADDR = str(self.HOST) + ":" + str(self.PORT)
 
@@ -108,12 +115,29 @@ class Fs:
         self.file_transfer = True
         if "file_transfer" in configurations and configurations["file_transfer"] is not None:
             self.file_transfer = configurations["file_transfer"]
-
-    def initialoze_queue(self):
         self.q = self.manager.Queue()
-        for i in range(self.file_count):
+
+    def add_to_queue(self, vroot, multiplier=1):
+        # time.sleep(10)
+        print(vroot)
+        file_names = os.listdir(vroot) * multiplier
+        file_sizes = [os.path.getsize(vroot + filename) for filename in file_names]
+        file_count = len(os.listdir(vroot) * multiplier)
+
+        for i in range(self.file_count, self.file_count + file_count):
             self.q.put(i)
-        print(self.q.qsize(), self.file_count)
+
+        self.file_incomplete = mp.Value("i", self.file_incomplete.value + file_count)
+        self.file_offsets = mp.Array("d", [i for i in self.file_offsets] + [0.0 for i in range(file_count)])
+        self.file_names = self.file_names + file_names
+        self.file_sizes = self.file_sizes + file_sizes
+        self.file_count = self.file_count + file_count
+        self.root = self.root + [vroot for i in range(file_count)]
+        print("file_incomplete",self.file_incomplete)
+        self.is_finish()
+        print("intital queue size", self.q.qsize(), self.file_count)
+        self.q.task_done()
+
 
     def append_queue(self):
 
@@ -122,9 +146,12 @@ class Fs:
         print(self.q.qsize(), self.file_count)
 
     def is_finish(self):
-        print(self.q.qsize())
+        print("finidhed check",time.time())
+        print("queue size",self.q.qsize())
 
-        return True if self.q.qsize()==0 else False
+        print("file_names", self.file_incomplete)
+
+        return True if self.q.qsize() == 0 else False
 
 
 def tcp_stats():
@@ -175,17 +202,18 @@ def worker(process_id, fs):
                     second_target, second_data_count = int(max_speed / factor), 0
 
                 while (not fs.q.empty()) and (fs.process_status[process_id] == 1):
+                    log.debug("getting  :: {0}".format(process_id))
                     try:
                         file_id = fs.q.get()
+                        log.debug("getting {0}  from  {1}".format(file_id, process_id))
                     except:
                         fs.process_status[process_id] = 0
                         break
 
                     offset = fs.file_offsets[file_id]
                     to_send = fs.file_sizes[file_id] - offset
-
                     if (to_send > 0) and (fs.process_status[process_id] == 1):
-                        filename = fs.root + fs.file_names[file_id]
+                        filename = fs.root[file_id] + fs.file_names[file_id]
                         file = open(filename, "rb")
                         msg = fs.file_names[file_id] + "," + str(int(offset))
                         msg += "," + str(int(to_send)) + "\n"
@@ -195,15 +223,17 @@ def worker(process_id, fs):
                         timer100ms = time.time()
 
                         while (to_send > 0) and (fs.process_status[process_id] == 1):
+                            log.debug("in {0}, {1}, {2}".format(process_id, file_id, filename))
                             if fs.emulab_test:
                                 block_size = min(fs.chunk_size, second_target - second_data_count)
+
                                 data_to_send = bytearray(block_size)
                                 sent = sock.send(data_to_send)
                             else:
                                 block_size = min(fs.chunk_size, to_send)
-
+                                log.debug("count must be integer {0}".format(int(block_size)))
                                 if fs.file_transfer:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                    sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                                     # data = os.preadv(file, block_size, offset)
                                 else:
                                     data_to_send = bytearray(block_size)
@@ -212,7 +242,7 @@ def worker(process_id, fs):
                             offset += sent
                             to_send -= sent
                             fs.file_offsets[file_id] = offset
-
+                            log.debug("in {0}, {1}, {2}".format(process_id, file_id, filename))
                             if fs.emulab_test:
                                 second_data_count += sent
                                 if second_data_count >= second_target:
@@ -221,7 +251,7 @@ def worker(process_id, fs):
                                         pass
 
                                     timer100ms = time.time()
-
+                    log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename))
                     if to_send > 0:
                         fs.q.put(file_id)
                     else:
@@ -241,7 +271,7 @@ def worker(process_id, fs):
     fs.process_status[process_id] = 0
 
 
-def sample_transfer(params,fs):
+def sample_transfer(params, fs):
     global throughput_logs
     if fs.file_incomplete.value == 0:
         return 10 ** 10
@@ -255,7 +285,7 @@ def sample_transfer(params,fs):
     current_cc = np.sum(fs.process_status)
     for i in range(configurations["thread_limit"]):
         if i < params[0]:
-            if (i >= current_cc):
+            if i >= current_cc:
                 fs.process_status[i] = 1
         else:
             fs.process_status[i] = 0
@@ -296,7 +326,7 @@ def sample_transfer(params,fs):
         return score_value
 
 
-def normal_transfer(params,fs):
+def normal_transfer(params, fs):
     fs.num_workers.value = max(1, int(np.round(params[0])))
     log.info("Normal Transfer -- Probing Parameters: {0}".format([fs.num_workers.value]))
 
@@ -342,10 +372,10 @@ def run_transfer(fs):
         params = base_optimizer(configurations, sample_transfer, log)
 
     if fs.file_incomplete.value > 0:
-        normal_transfer(params,fs)
+        normal_transfer(params, fs)
 
 
-def report_throughput(start_time,fs):
+def report_throughput(start_time, fs):
     # global throughput_logs
     previous_total = 0
     previous_time = 0
@@ -370,16 +400,43 @@ def report_throughput(start_time,fs):
             time.sleep(max(0, 1 - (t2 - t1)))
 
 
-def initialize_transfer(fs):
-    fs.initialoze_queue()
-    fs.is_finish()
-    workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
-    for p in workers:
-        p.daemon = True
-        p.start()
+class Workers:
+    def __init__(self):
+        self.workers = []
 
+    def start_workers(self, worker, fs, theads_count=1):
+        self.workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
+        for p in self.workers:
+            p.daemon = True
+            p.start()
+
+    def stop_workers(self):
+        for p in self.workers:
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=0.1)
+
+    def running_workers(self):
+        count = 0
+        for p in self.workers:
+            if p.is_alive():
+                count = count + 1
+        return count
+
+
+def initialize_transfer(fs):
+    # fs.initialoze_queue()
+    fs.is_finish()
+    # workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
+    # for p in workers:
+    #     p.daemon = True
+    #     p.start()
+    jb = Workers()
+
+    jb.start_workers(worker, fs)
+    print("running workers", jb.running_workers())
     start = time.time()
-    reporting_process = mp.Process(target=report_throughput, args=(start,fs))
+    reporting_process = mp.Process(target=report_throughput, args=(start, fs))
     reporting_process.daemon = True
     reporting_process.start()
     run_transfer(fs)
@@ -390,14 +447,17 @@ def initialize_transfer(fs):
     thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
     log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
         total, time_since_begining, thrpt))
-
+    print("running workers", jb.running_workers())
     reporting_process.terminate()
-    for p in workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
-if __name__ == '__main__':
+    jb.stop_workers()
+    print("running workers", jb.running_workers())
+    # for p in workers:
+    #     if p.is_alive():
+    #         p.terminate()
+    #         p.join(timeout=0.1)
 
+
+if __name__ == '__main__':
     # # print('Number of arguments:', len(sys.argv), 'arguments.')
     # # print('Argument List:', str(sys.argv))
     # # print(len(sys.argv),sys.argv[len(sys.argv)-1])
@@ -406,8 +466,21 @@ if __name__ == '__main__':
     # else:
     #     dir = configurations["data_dir"]
     # log.info(dir)
-    fs = Fs(configurations["data_dir"], configurations["receiver"]["host"], configurations["receiver"]["port"], configurations["multiplier"])
+    fs = Fs(configurations["receiver"]["host"], configurations["receiver"]["port"])
 
+    # fs.add_to_queue(configurations["data_dir"])
+    time1 = time.time_ns()
+    put_files = mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"],))
+    put_files.start()
+    print("1",fs.is_finish())
+    put_files.join()
+    print(f"time is {time.time_ns() - time1}")
+
+    print("mid",fs.is_finish())
+    # mp.Process(target=fs.add_to_queue, args=(dir))
     initialize_transfer(fs)
-    fs.is_finish()
 
+    # mp.Process(target=fs.add_to_queue, args=(dir))
+    # mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"]))
+    # fs.add_to_queue("/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/")
+    print("last",fs.is_finish())
