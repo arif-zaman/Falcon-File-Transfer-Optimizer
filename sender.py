@@ -50,7 +50,7 @@ class SimpleClass(object):
         self.root = []
         self.file_names = []
         self.file_sizes = []
-        self.file_count = 2
+        self.file_count = 0
         self.file_incomplete = mp.Value("i", self.file_count)
         self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
 
@@ -59,9 +59,12 @@ class SimpleClass(object):
 
     def get_file_names(self):
         return self.file_names
+    #
+    # def get_file_sizes(self):
+    #     return self.file_sizes
 
-    def get_file_sizes(self):
-        return self.file_sizes
+    def get_file_sizes(self,index):
+        return self.file_sizes[index]
 
     def get_file_count(self):
         return self.file_count
@@ -69,8 +72,12 @@ class SimpleClass(object):
     def get_file_incomplete(self):
         return self.file_incomplete.value
 
-    def get_file_offsets(self):
-        return self.file_offsets
+    def get_total_file_offsets(self):
+        return np.sum(self.file_offsets)
+        # return self.file_offsets
+
+    def get_file_offsets(self,index):
+        return self.file_offsets[index]
 
     def set_root(self,a):
         self.root=a
@@ -110,11 +117,6 @@ class SimpleClass(object):
         # print("intital queue size", self.q.qsize(), self.file_count)
         # self.q.task_done()
 
-    def get_file_offsets(self):
-        return self.file_offsets
-
-    def get_file_count(self):
-        return self.file_count
 
     def print_state(self):
         print("----------------------------")
@@ -218,7 +220,7 @@ def tcp_stats():
 def worker(process_id, fs):
     print("fs" ,fs.process_status[process_id],fs.num_workers.value)
     fs.filesIn.print_state()
-
+    log.debug("incomplete files  :: {0}".format(fs.filesIn.get_file_incomplete()))
     while fs.filesIn.get_file_incomplete() > 0:
         if fs.process_status[process_id] == 0:
             pass
@@ -246,8 +248,9 @@ def worker(process_id, fs):
                         fs.process_status[process_id] = 0
                         break
 
-                    offset = fs.filesIn.get_file_offsets()[file_id]
-                    to_send = fs.filesIn.get_file_sizes()[file_id] - offset
+                    offset = fs.filesIn.get_file_offsets(file_id)
+                    to_send = fs.filesIn.get_file_sizes(file_id) - offset
+                    log.debug("for processid {0},offset  {1},to_send {2}".format(process_id, offset, to_send))
                     if (to_send > 0) and (fs.process_status[process_id] == 1):
                         filename = fs.filesIn.get_root()[file_id] + fs.filesIn.get_file_names()[file_id]
                         file = open(filename, "rb")
@@ -292,7 +295,9 @@ def worker(process_id, fs):
                     if to_send > 0:
                         fs.q.put(file_id)
                     else:
-                        fs.filesIn.set_file_incomplete(fs.filesIn.get_file_incomplete()-1)
+                        filCo= fs.filesIn.get_file_incomplete() -1
+                        log.debug("new filecount {0} ".format(filCo))
+                        fs.filesIn.set_file_incomplete(filCo)
                         # fs.file_incomplete.value = fs.file_incomplete.value - 1
 
                 sock.close()
@@ -300,9 +305,9 @@ def worker(process_id, fs):
             except socket.timeout as e:
                 pass
 
-            except Exception as e:
-                fs.process_status[process_id] = 0
-                log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
+            # except Exception as e:
+            #     fs.process_status[process_id] = 0
+            #     log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
 
             log.debug("End Process :: {0}".format(process_id))
 
@@ -417,13 +422,13 @@ def report_throughput(start_time, fs):
     # global throughput_logs
     previous_total = 0
     previous_time = 0
-
-    while fs.filesIn.file_incomplete.value > 0:
+    log.debug("incomplete files  :: {0}".format(fs.filesIn.get_file_incomplete()))
+    while fs.filesIn.get_file_incomplete() > 0:
         t1 = time.time()
         time_since_begining = np.round(t1 - start_time, 1)
 
         if time_since_begining >= 1:
-            total_bytes = np.sum(fs.file_offsets)
+            total_bytes = fs.filesIn.get_total_file_offsets()
             thrpt = np.round((total_bytes * 8) / (time_since_begining * 1000 * 1000), 2)
 
             curr_total = total_bytes - previous_total
@@ -473,20 +478,21 @@ def initialize_transfer(fs):
 
     jb.start_workers(worker, fs)
     print("running workers", jb.running_workers())
-    # start = time.time()
-    # reporting_process = mp.Process(target=report_throughput, args=(start, fs))
-    # reporting_process.daemon = True
-    # reporting_process.start()
+    start = time.time()
+    reporting_process = mp.Process(target=report_throughput, args=(start, fs))
+    reporting_process.daemon = True
+    reporting_process.start()
     run_transfer(fs)
-    # end = time.time()
-    #
-    # time_since_begining = np.round(end - start, 3)
-    # total = np.round(np.sum(fs.file_offsets) / (1024 * 1024 * 1024), 3)
-    # thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
-    # log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-    #     total, time_since_begining, thrpt))
-    # print("running workers", jb.running_workers())
-    # reporting_process.terminate()
+    end = time.time()
+
+    time_since_begining = np.round(end - start, 3)
+    total = np.round(fs.filesIn.get_total_file_offsets() / (1024 * 1024 * 1024), 3)
+    thrpt = np.round((total * 8 * 1024) / time_since_begining, 2)
+    log.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+        total, time_since_begining, thrpt))
+    print("running workers", jb.running_workers())
+    reporting_process.terminate()
+
     jb.stop_workers()
     print("running workers", jb.running_workers())
     # for p in workers:
@@ -499,33 +505,14 @@ if __name__ == '__main__':
 
     fs = Fs(configurations["receiver"]["host"], configurations["receiver"]["port"])
 
-    # fs.add_to_queue(configurations["data_dir"])
     time1 = time.time_ns()
-    # put_files = mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"],))
-    # put_files.start()
-    # put_files.join()
-    # p = mp.Process(target=fs.change_obj_value, args=(configurations["data_dir"],))
-    # p.start()
-    # p.join()
+    p = mp.Process(target=fs.change_obj_value, args=(configurations["data_dir"],))
+    p.start()
+
 
     # fs.filesIn.print_state()
-    fs.change_obj_value(configurations["data_dir"])
+    # fs.change_obj_value(configurations["data_dir"])
     print(f"time is {time.time_ns() - time1}")
-    # mp.Process(target=fs.add_to_queue, args=(dir))
     initialize_transfer(fs)
+    p.join()
 
-    # mp.Process(target=fs.add_to_queue, args=(dir))
-    # mp.Process(target=fs.add_to_queue, args=(configurations["data_dir"]))
-    # fs.add_to_queue("/home/mbadhan/PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/")
-
-
-
-    #
-    # p = mp.Process(target=fs.change_obj_value, args=(configurations["data_dir"],))
-    # p.start()
-    # p.join()
-    # fs.filesIn.print_state()
-    # p2 = mp.Process(target=fs.change_obj_value, args=("/home/muku/PycharmProjects/Falcon-File-Transfer-Optimizer/inputs/",))
-    # p2.start()
-    # p2.join()
-    # fs.filesIn.print_state()
