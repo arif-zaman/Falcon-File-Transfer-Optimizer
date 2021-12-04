@@ -7,7 +7,7 @@ import parsl
 from parsl.utils import RepresentationMixin
 from parsl.data_provider.staging import Staging
 
-from sender import report_throughput, initialize_transfer, Fs
+from sender import report_throughput, initialize_transfer, Fs, get_fs, check_way, get_ls
 
 logger = logging.getLogger(__name__)
 
@@ -52,10 +52,37 @@ def in_task_transfer_wrapper(func, file, working_dir):
 
 def _falcon_stage_in(working_dir, parent_fut=None, outputs=[], _parsl_staging_inhibit=True):
     file = outputs[0]
-    print(file.path)
-    fs = Fs(file.path, "127.0.0.1", 50021, 1)
+    logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    logger.info(file.path)
+    # fs = Fs("127.0.0.1",50021)
+    # fs.add_to_queue(file.path)
+    # initialize_transfer(fs)
 
-    initialize_transfer(fs)
+    # check_way(file.path)
+    # print("out", len(get_ls()))
+
+    ds = get_fs()
+    ds.set_connection("127.0.0.1",50021)
+    ds.add_to_queue(file.path)
+    initialize_transfer(ds)
+
+    if ds.filesIn.get_file_incomplete()> 0:
+        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        print("q------- ----------just adding q", ds.q.qsize())
+        ds.add_to_queue(file.path)
+        ds.filesIn.print_state()
+        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+    else:
+        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        print("q------- -----------------starting and  adding q", ds.q.qsize())
+        ds.add_to_queue(file.path)
+        # initialize_transfer(ds)
+        ds.filesIn.print_state()
+        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+
+
     # if working_dir:
     #     os.makedirs(working_dir, exist_ok=True)
     # with open(file.local_path, 'wb') as f:

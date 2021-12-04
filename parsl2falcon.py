@@ -38,13 +38,13 @@ def read_files(time_p, inputs=[]):
 @python_app
 def file_transfer(file_name):
     # print (file_name)
-    harp_file = File('falcon://127.0.0.1/home/muku/' + file_name)
+    harp_file = File('falcon://127.0.0.1/home/mbadhan/' + file_name)
     # harp_file = File('falcon://127.0.0.1/home/muku/data/send/')
     # # harp_file = File('falcon://127.0.0.1/home/muku/PycharmProjects/Falcon-File-Transfer-Optimizer/inputs/')
     return harp_file
 
 
-files = ["data/send/","PycharmProjects/Falcon-File-Transfer-Optimizer/inputs/"]
+files = ["data/send/","PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/"]
 # files=["foo1.txt","foo2.txt"]
 # files=["foo1.txt","foo2.txt","foo3.txt"]
 #files=["foo1.txt","foo2.txt","foo3.txt","foo4.txt"]
