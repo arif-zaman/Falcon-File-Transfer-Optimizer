@@ -1,6 +1,7 @@
 import ftplib
 import logging
 import os
+import time
 
 import parsl
 
@@ -61,25 +62,40 @@ def _falcon_stage_in(working_dir, parent_fut=None, outputs=[], _parsl_staging_in
     # check_way(file.path)
     # print("out", len(get_ls()))
 
+
     ds = get_fs()
     ds.set_connection("127.0.0.1",50021)
-    ds.add_to_queue(file.path)
-    initialize_transfer(ds)
-
-    if ds.filesIn.get_file_incomplete()> 0:
-        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-        print("q------- ----------just adding q", ds.q.qsize())
+    quesiz= ds.q.qsize()
+    # ds.add_to_queue(file.path)
+    # initialize_transfer(ds)
+    # print("q------- ----------just adding q",ds.q.qsize())
+    if quesiz>0:
+        logger.info("q------- ----------just adding q")
         ds.add_to_queue(file.path)
-        ds.filesIn.print_state()
-        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-
     else:
-        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-        print("q------- -----------------starting and  adding q", ds.q.qsize())
+        logger.info("q------- ----------starting falcon and adding q")
         ds.add_to_queue(file.path)
-        # initialize_transfer(ds)
-        ds.filesIn.print_state()
-        logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+        if file.path == "/home/mbadhan/data/send/":
+            print("big  file")
+            time.sleep(5)
+
+
+
+    # if ds.q.qsize() > 0:
+    # # if ds.filesIn.get_file_incomplete()> 0:
+    #     logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    #     logger.info("q------- ----------just adding q")
+    #     ds.add_to_queue(file.path)
+    #     ds.filesIn.print_state()
+    #     logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    #
+    # else:
+    #     logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    #     logger.info("q------- -----------------starting and  adding q")
+    #     ds.add_to_queue(file.path)
+    #     initialize_transfer(ds)
+    #     ds.filesIn.print_state()
+    #     logger.info("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 
 
 

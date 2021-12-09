@@ -118,6 +118,7 @@ class Fs:
         self.filesIn.set(path)
         for i in range(self.q.qsize(), self.q.qsize() + self.filesIn.get_file_count()):
             self.q.put(i)
+        print("self.q.qsize()",self.q.qsize())
 
     def add_to_queue(self, vroot):
         # p = mp.Process(target=self.change_obj_value, args=(vroot,))
