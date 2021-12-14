@@ -147,7 +147,7 @@ def worker(process_id, fs):
                                         pass
 
                                     timer100ms = time.time()
-                    log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename))
+                    # log.debug("finished {0}, {1}, {2}".format(process_id, file_id, filename))
                     if to_send > 0:
                         fs.q.put(file_id)
                     else:
@@ -161,9 +161,9 @@ def worker(process_id, fs):
             except socket.timeout as e:
                 pass
 
-            except Exception as e:
-                fs.process_status[process_id] = 0
-                log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
+            # except Exception as e:
+            #     fs.process_status[process_id] = 0
+            #     log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
 
             log.debug("End Process :: {0}".format(process_id))
 
@@ -304,7 +304,7 @@ class Workers:
         self.workers = []
 
     def start_workers(self, worker, fs, theads_count=1):
-        self.workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
+        self.workers = [mp.Process(name="FalconWorkers", target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
         for p in self.workers:
             p.daemon = True
             p.start()
@@ -323,16 +323,20 @@ class Workers:
         return count
 
 
-def initialize_transfer(fs):
+def initialize_transfer(fs,logger = 0):
     # workers = [mp.Process(target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
     # for p in workers:
     #     p.daemon = True
     #     p.start()
+
+    if (logger != 0):
+        logger.info(
+            "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX initialize_transfer started XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
     jb = Workers()
 
     jb.start_workers(worker, fs)
     start = time.time()
-    reporting_process = mp.Process(target=report_throughput, args=(start, fs))
+    reporting_process = mp.Process(name="FalconReports",target=report_throughput, args=(start, fs))
     reporting_process.daemon = True
     reporting_process.start()
     run_transfer(fs)
@@ -350,6 +354,11 @@ def initialize_transfer(fs):
     #     if p.is_alive():
     #         p.terminate()
     #         p.join(timeout=0.1)
+
+    print("initialize_transfer ",fs.q.qsize())
+    if (logger != 0):
+        logger.info(
+            "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX initialize_transfer completed XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
 fs = Fs()
 

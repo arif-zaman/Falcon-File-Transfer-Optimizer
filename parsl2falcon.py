@@ -56,7 +56,7 @@ for i in range(len(files)):
 
 outputs = []
 curr = time.time()
-current_process = psutil.Process()
+current_process = psutil.Process();
 cur_cpu = psutil.cpu_percent()
 for r in results:
     outputs.append(read_files(time.time(), r.result()))

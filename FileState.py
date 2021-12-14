@@ -1,10 +1,10 @@
 import multiprocessing as mp
 import os
+from multiprocessing.managers import BaseManager
 
 import numpy as np
 
 from config_sender import configurations
-from multiprocessing.managers import BaseManager
 
 
 class SimpleClass(object):
@@ -68,15 +68,32 @@ class SimpleClass(object):
         self.root = self.root + [vroot for i in range(file_count)]
         print("file_incomplete", self.file_incomplete)
 
-    def print_state(self):
-        print("----------------------------")
-        print("root", self.root)
-        print("file_names", self.file_names)
-        print("file_sizes", self.file_sizes)
-        print("file_count", self.file_count)
-        print("file_incomplete", self.file_incomplete.value)
-        print("file_offsets", self.file_offsets)
-        print("----------------------------")
+    def print_state(self,logger=0):
+        if(logger==0):
+            print("----------------------------")
+            print("root", self.root)
+            print("file_names", self.file_names)
+            print("file_sizes", self.file_sizes)
+            print("file_count", self.file_count)
+            print("file_incomplete", self.file_incomplete.value)
+            print("file_offsets", self.file_offsets)
+            print("----------------------------")
+        else:
+            logger.info("----------------------------")
+            logger.info("root")
+            logger.info(self.root)
+            logger.info("file_names")
+            logger.info(self.file_names)
+            logger.info("file_sizes")
+            logger.info(self.file_sizes)
+            logger.info("file_count")
+            logger.info(self.file_count)
+            logger.info("file_incomplete")
+            logger.info(self.file_incomplete.value)
+            logger.info("file_offsets")
+            logger.info(self.file_offsets)
+            logger.info("----------------------------")
+
 
 
 class Fs:
@@ -88,7 +105,6 @@ class Fs:
         self.filesIn = manager.SimpleClass()
         self.HOST, self.PORT = 0, 0
         self.RCVR_ADDR = str(self.HOST) + ":" + str(self.PORT)
-
 
         configurations["thread_limit"] = configurations["max_cc"]
         configurations["cpu_count"] = mp.cpu_count()
@@ -110,18 +126,24 @@ class Fs:
             self.file_transfer = configurations["file_transfer"]
         self.q = self.manager.Queue()
 
-    def set_connection(self, vhost, vport):
+    def set_connection(self, vhost, vport,logger=0):
         self.HOST, self.PORT = vhost, vport
         self.RCVR_ADDR = str(self.HOST) + ":" + str(self.PORT)
+        if (logger != 0):
+            logger.info(
+                "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX setting connection XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
     def change_obj_value(self, path):
         self.filesIn.set(path)
         for i in range(self.q.qsize(), self.q.qsize() + self.filesIn.get_file_count()):
             self.q.put(i)
-        print("self.q.qsize()",self.q.qsize())
+        print("self.q.qsize()", self.q.qsize())
 
-    def add_to_queue(self, vroot):
+    def add_to_queue(self, vroot, logger=0):
         # p = mp.Process(target=self.change_obj_value, args=(vroot,))
         # p.start()
         # p.join()
+        if (logger != 0):
+            logger.info(
+                "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX adding directory in  q XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
         self.change_obj_value(vroot)
