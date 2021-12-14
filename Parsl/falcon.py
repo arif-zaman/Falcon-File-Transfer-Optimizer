@@ -70,7 +70,7 @@ def _falcon_stage_in(working_dir, parent_fut=None, outputs=[], _parsl_staging_in
     logger.info("queue size")
     logger.info(ds.q.qsize())
     logger.info(ds.filesIn.get_file_incomplete())
-    logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+    logger.info("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!b")
 
     if ds.filesIn.get_file_incomplete() > 0:
         logger.info("q------- ----------just adding q")
