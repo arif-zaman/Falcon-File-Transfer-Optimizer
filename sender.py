@@ -76,7 +76,7 @@ def tcp_stats():
 
 
 def worker(process_id, fs):
-    log.debug("incomplete files  :: {0}".format(fs.filesIn.get_file_incomplete()))
+    log.info("incomplete files  :: {0}".format(fs.filesIn.get_file_incomplete()))
     while fs.filesIn.get_file_incomplete() > 0:
         if fs.process_status[process_id] == 0:
             pass
@@ -154,6 +154,10 @@ def worker(process_id, fs):
                         filCo = fs.filesIn.get_file_incomplete() - 1
                         log.debug("new filecount {0} ".format(filCo))
                         fs.filesIn.set_file_incomplete(filCo)
+                        # log.info(filename)
+                        fs.filesIn.complete_file(filename)
+                        print("what",fs.filesIn.if_complete_file(filename))
+                        log.info("finish file  ")
                         # fs.file_incomplete.value = fs.file_incomplete.value - 1
 
                 sock.close()
@@ -172,7 +176,7 @@ def worker(process_id, fs):
 
 def sample_transfer(params, fs):
     global throughput_logs
-    if fs.file_incomplete.value == 0:
+    if fs.filesIn.get_file_incomplete() == 0:
         return 10 ** 10
 
     params = [int(np.round(x)) for x in params]
@@ -182,7 +186,8 @@ def sample_transfer(params, fs):
     fs.num_workers.value = params[0]
 
     current_cc = np.sum(fs.process_status)
-    for i in range(configurations["thread_limit"]):
+    for i in range(fs.thread_limit):
+    # for i in range(configurations["thread_limit"]):
         if i < params[0]:
             if i >= current_cc:
                 fs.process_status[i] = 1
@@ -304,7 +309,10 @@ class Workers:
         self.workers = []
 
     def start_workers(self, worker, fs, theads_count=1):
-        self.workers = [mp.Process(name="FalconWorkers", target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
+
+        self.workers = [mp.Process(name="FalconWorkers", target=worker, args=(i, fs)) for i in range(fs.thread_limit)]
+        # self.workers = [mp.Process(name="FalconWorkers", target=worker, args=(i, fs)) for i in range(configurations["thread_limit"])]
+
         for p in self.workers:
             p.daemon = True
             p.start()

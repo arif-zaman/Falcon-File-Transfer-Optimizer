@@ -11,10 +11,20 @@ class SimpleClass(object):
     def __init__(self):
         self.root = []
         self.file_names = []
+        self.complete_files = []
         self.file_sizes = []
         self.file_count = 0
         self.file_incomplete = mp.Value("i", self.file_count)
         self.file_offsets = mp.Array("d", [0.0 for i in range(self.file_count)])
+
+    def complete_file(self, file):
+        self.complete_files.append(file)
+
+    def if_complete_file(self, file):
+        for i in self.complete_files:
+            if i == file:
+                return True
+        return False
 
     def get_root(self):
         return self.root
@@ -56,10 +66,15 @@ class SimpleClass(object):
         self.file_offsets[a] = offset
 
     def set(self, vroot):
-        print(vroot)
-        file_names = os.listdir(vroot)
+        # print("here",vroot)
+        file_names = []
+        if os.path.isfile(vroot):
+            file_names = [os.path.basename(vroot)]
+            vroot = os.path.dirname(vroot) + "/"
+        elif os.path.isdir(vroot):
+            file_names = os.listdir(vroot)
         file_sizes = [os.path.getsize(vroot + filename) for filename in file_names]
-        file_count = len(os.listdir(vroot))
+        file_count = len(file_names)
         self.file_incomplete = mp.Value("i", self.file_incomplete.value + file_count)
         self.file_offsets = mp.Array("d", [i for i in self.file_offsets] + [0.0 for i in range(file_count)])
         self.file_names = self.file_names + file_names
@@ -68,8 +83,8 @@ class SimpleClass(object):
         self.root = self.root + [vroot for i in range(file_count)]
         print("file_incomplete", self.file_incomplete)
 
-    def print_state(self,logger=0):
-        if(logger==0):
+    def print_state(self, logger=0):
+        if (logger == 0):
             print("----------------------------")
             print("root", self.root)
             print("file_names", self.file_names)
@@ -92,8 +107,9 @@ class SimpleClass(object):
             logger.info(self.file_incomplete.value)
             logger.info("file_offsets")
             logger.info(self.file_offsets)
+            logger.info("complete_files")
+            logger.info(self.complete_files)
             logger.info("----------------------------")
-
 
 
 class Fs:
@@ -110,6 +126,7 @@ class Fs:
         configurations["cpu_count"] = mp.cpu_count()
         if configurations["thread_limit"] == -1:
             configurations["thread_limit"] = configurations["cpu_count"]
+        self.thread_limit = configurations["thread_limit"]
         self.manager = mp.Manager()
         self.probing_time = configurations["probing_sec"]
         self.throughput_logs = self.manager.list()
@@ -126,7 +143,7 @@ class Fs:
             self.file_transfer = configurations["file_transfer"]
         self.q = self.manager.Queue()
 
-    def set_connection(self, vhost, vport,logger=0):
+    def set_connection(self, vhost, vport, logger=0):
         self.HOST, self.PORT = vhost, vport
         self.RCVR_ADDR = str(self.HOST) + ":" + str(self.PORT)
         if (logger != 0):
@@ -134,6 +151,7 @@ class Fs:
                 "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX setting connection XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX")
 
     def change_obj_value(self, path):
+        # print("why",path)
         self.filesIn.set(path)
         for i in range(self.q.qsize(), self.q.qsize() + self.filesIn.get_file_count()):
             self.q.put(i)
