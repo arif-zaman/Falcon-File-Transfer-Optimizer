@@ -84,20 +84,23 @@ def _falcon_stage_in(working_dir, parent_fut=None, outputs=[], _parsl_staging_in
     logger.info("===================================================================================================")
     # while ds.checkFileStatus(file):
 
-    while all_file_tranfered(ds,file) > 0:
+    while not all_file_tranfered(ds,file):
+
         # time.sleep(10)
         pass
 
     # ds.filesIn.print_state(logger)
 def all_file_tranfered(ds,file):
     all_file_done=False
+
     if os.path.isdir(file.path):
         for fil in os.listdir(file.path):
-            all_file_done = ds.filesIn.if_complete_file(file.path)
+            all_file_done = ds.filesIn.if_complete_file(file.path+ fil)
             if all_file_done==False:
                 break
     else:
         all_file_done=ds.filesIn.if_complete_file(file.path)
+
     return all_file_done
 
 def _falcon_stage_in_app(dm, executor):

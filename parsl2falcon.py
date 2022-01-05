@@ -16,8 +16,8 @@ set_stream_logger()
 config = Config(
     executors=[
         ThreadPoolExecutor(
-            label='local_threads_harp',
-            working_dir="files/",
+            label='local_threads_falcon',
+            working_dir="/home/mbadhan/data/receive/",
             storage_access=[falconStage(
                 address="127.0.0.1"
             )]
@@ -33,6 +33,11 @@ def read_files(time_p, inputs=[]):
     import time
     print("------------------------------------------------------------------")
     print(inputs)
+    f = open(inputs, "r")
+
+
+    print(f.read())
+    print("time for execution:" + str(time.time()))
     print("------------------------------------------------------------------")
     return "time for execution:" + str(time.time() - time_p)
 
@@ -42,8 +47,9 @@ def file_process(file_name):
     falcon_file = File('falcon://127.0.0.1/home/mbadhan/' + file_name)
     return falcon_file
 
-
+# files = ["data/send/"]
 files = ["data/send/", "PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/foo4.txt"]
+# files = [ "PycharmProjects/Falcon-File-Transfer-Optimizer2/inputs/foo4.txt"]
 # files=["foo1.txt","foo2.txt"]
 # files=["foo1.txt","foo2.txt","foo3.txt"]
 # files=["foo1.txt","foo2.txt","foo3.txt","foo4.txt"]
