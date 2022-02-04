@@ -35,21 +35,21 @@ def worker(sock):
                     d = client.recv(1).decode()
                     
                 if file_transfer:
-                    m = mmap.mmap(-1, chunk_size.value)
+#                     m = mmap.mmap(-1, chunk_size.value)
                     file_stats = header.split(",")
                     filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
-                    fd = os.open(root + filename, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR) #, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR
-                    os.lseek(fd, offset, os.SEEK_SET)
-                    # file = open(root + filename, "wb+")
-                    # file.seek(offset)
+#                     fd = os.open(root + filename, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR) #, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR
+#                     os.lseek(fd, offset, os.SEEK_SET)
+                    file = open(root + filename, "wb+")
+                    file.seek(offset)
                     logger.debug("Receiving file: {0}".format(filename))
                     
                     chunk = client.recv(chunk_size.value)
-                    m.write(chunk)
+#                     m.write(chunk)
                     while chunk:
                         logger.debug("Chunk Size: {0}".format(len(chunk)))
-                        # file.write(chunk)
-                        os.write(fd, m)
+                        file.write(chunk)
+#                         os.write(fd, m)
                         to_rcv -= len(chunk)
                         total += len(chunk)
                         
@@ -59,8 +59,8 @@ def worker(sock):
                             logger.debug("Successfully received file: {0}".format(filename))
                             break
 
-                    # file.close()
-                    os.close(fd)
+                    file.close()
+#                     os.close(fd)
                 else:
                     chunk = client.recv(chunk_size.value)
                     while chunk:
