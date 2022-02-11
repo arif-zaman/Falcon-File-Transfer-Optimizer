@@ -1,10 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "10.10.2.2",
+        "host": "134.197.113.71",
         "port": 50021
     },
-    "data_dir": "/data/src_dir/",
-    "method": "gradient", #[gradient, bayes, random, brute, probe, cg, lbfgs]
+    "data_dir": "/home/arif/data/",
+    "method": "probe", #[gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1
@@ -13,16 +13,16 @@ configurations = {
         "num_of_exp": 10
     },
     "emulab_test": False,
-    "file_transfer": True,
+    "file_transfer": False,
     "B": 10,
     "K": 1.02,
     "loglevel": "info",
-    "probing_sec": 3,
-    "multiplier": 1,
+    "probing_sec": 5,
+    "multiplier": 1000,
     "mp_opt": False,
     "fixed_probing": {
-        "bsize": 7,
-        "thread": 4
+        "bsize": 10,
+        "thread": 3
     },
-    "max_cc": 100,
+    "max_cc": 10,
 }

@@ -1,5 +1,12 @@
 ## Only supports Concurrency optimization
 
+import scitokens
+from cryptography.hazmat.primitives.asymmetric.rsa import generate_private_key
+import cryptography.hazmat.primitives.asymmetric.ec as ec
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import serialization
+from jwt import DecodeError, InvalidAudienceError
+
 import socket
 import os
 import numpy as np
@@ -7,6 +14,7 @@ import time
 import warnings
 import datetime
 import logging as log
+import argparse, sys
 import multiprocessing as mp
 from threading import Thread
 from config_sender import configurations
@@ -59,6 +67,19 @@ if "file_transfer" in configurations and configurations["file_transfer"] is not 
 
 
 manager = mp.Manager()
+parser = argparse.ArgumentParser()
+parser.add_argument('--dirc', help='source data directory')
+parser.add_argument('--cc', help='concurrency value')
+args=parser.parse_args()
+
+if args.cc is not None:
+    configurations["method"] = "probe"
+    configurations["fixed_probing"]["thread"] = int(args.cc)
+
+if args.dirc is not None:
+    configurations["data_dir"] = args.dirc
+    log.info("Data Dirctory: {0}".format(args.dirc))
+    
 root = configurations["data_dir"]
 probing_time = configurations["probing_sec"]
 file_names = os.listdir(root) * configurations["multiplier"]
@@ -152,7 +173,7 @@ def worker(process_id, q):
                                 block_size = min(chunk_size, to_send)
                                 
                                 if file_transfer:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                    sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                                     # data = os.preadv(file, block_size, offset)
                                 else:
                                     data_to_send = bytearray(block_size)
@@ -182,11 +203,12 @@ def worker(process_id, q):
                 pass
                 
             except Exception as e:
+                process_status[process_id] = 0
                 log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
             
             log.debug("End Process :: {0}".format(process_id))
     
-    process_status[process_id] == 0
+    process_status[process_id] = 0
 
 
 def sample_transfer(params):
@@ -317,8 +339,52 @@ def report_throughput(start_time):
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
+        ## Run for 60sec
+        if time_since_begining > 60:
+            for i in range(configurations["thread_limit"]):
+                process_status[i] = 0
+                
+            file_incomplete.value = 0 
+
 
 if __name__ == '__main__':
+
+    private_key = generate_private_key(
+        public_exponent=65537,
+        key_size=2048,
+        backend=default_backend()
+    )
+    public_key = private_key.public_key()
+    public_pem = public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo
+    )
+
+    audience = "ANY"
+    keycache = scitokens.utils.keycache.KeyCache.getinstance()
+    keycache.addkeyinfo("local", "sample_key", public_key)
+    token = scitokens.SciToken(key = private_key, key_id="sample_key")
+    token['scope'] = "concurrency:/5"
+    # token.update_claims({'aud': audience})
+    serialized_token = token.serialize(issuer = audience)
+
+    try:
+        scitokens.SciToken.deserialize(
+            serialized_token, 
+            insecure=True, 
+            public_key = public_pem,
+            # audience = audience
+        )
+
+        print("valid token!")
+
+        enf = scitokens.Enforcer(issuer=audience)
+        # enf.add_validator(audience, always_accept)
+        acls = enf.generate_acls(token)
+        print(acls[0][1].split("/"))
+    except Exception as e:
+        print(e)
+
     q = manager.Queue(maxsize=file_count)
     for i in range(file_count):
         q.put(i)
