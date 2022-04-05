@@ -110,3 +110,4 @@ data/
 **/*.log
 emulab_simulation2.py
 emulab_simulation.py
+**/*.pem
