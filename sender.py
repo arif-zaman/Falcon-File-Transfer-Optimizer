@@ -55,7 +55,7 @@ else:
 audience = "dtn1.cs.unr.edu"
 issuer = "https://hpcn.unr.edu"
 
-redis_host = os.environ.get("REDIS_HOSTNAME", "134.197.113.70")
+redis_host = os.environ.get("REDIS_HOSTNAME", "localhost")
 redis_port = os.environ.get("REDIS_PORT", 6379)
 redis_stream_key = "falcon-transfer:{0}".format(audience)
 
