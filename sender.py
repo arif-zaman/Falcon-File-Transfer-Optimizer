@@ -1,14 +1,14 @@
 ## Only supports Concurrency optimization
 
-import socket
 import os
 import time
 import warnings
 import datetime
-import logging as log
+import socket
 import argparse
 import scitokens
 import numpy as np
+import logging as log
 from redis import Redis
 import multiprocessing as mp
 from config_sender import configurations
@@ -457,4 +457,4 @@ if __name__ == '__main__':
                             p.join(timeout=0.1)
 
         except ConnectionError as e:
-            print("ERROR REDIS CONNECTION: {}".format(e))
+            print("REDIS: {}".format(e))
