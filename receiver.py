@@ -1,39 +1,27 @@
 import os
 import mmap
+import time
 import socket
-from os import environ
-from redis import Redis
+import logging
 import numpy as np
 import multiprocessing as mp
-import logging
-import time
 from config_receiver import configurations
-import scitokens
 
 chunk_size = mp.Value("i", 1024*1024)
 root = configurations["data_dir"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
-audience = "dtn2.cs.unr.edu"
-issuer = "https://hpcn.unr.edu"
-
-redis_host = environ.get("REDIS_HOSTNAME", "134.197.113.70")
-redis_port = environ.get("REDIS_PORT", 6379)
-redis_stream_key = "falcon-transfer:{0}".format(audience)
 
 if configurations["loglevel"] == "debug":
-    logger = mp.log_to_stderr(logging.DEBUG)
+    log = mp.log_to_stderr(logging.DEBUG)
 else:
-    logger = mp.log_to_stderr(logging.INFO)
+    log = mp.log_to_stderr(logging.INFO)
 
-file_transfer = True
-if "file_transfer" in configurations and configurations["file_transfer"] is not None:
-    file_transfer = configurations["file_transfer"]
 
 def worker(sock, process_num):
     while True:
         try:
             client, address = sock.accept()
-            logger.info("{u} connected".format(u=address))
+            log.info("{u} connected".format(u=address))
             process_status[process_num] = 1
             total = 0
             d = client.recv(1).decode()
@@ -47,30 +35,34 @@ def worker(sock, process_num):
                     file_stats = header.split(",")
                     filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
 
-#                     m = mmap.mmap(-1, chunk_size.value)
-#                     fd = os.open(root + filename, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR) #, os.O_CREAT | os.O_DIRECT | os.O_TRUNC | os.O_RDWR
-#                     os.lseek(fd, offset, os.SEEK_SET)
-                    file = open(root + filename, "wb+")
-                    file.seek(offset)
-                    logger.debug("Receiving file: {0}".format(filename))
+                    if direct_io:
+                        fd = os.open(root+filename, os.O_CREAT | os.O_RDWR | os.O_DIRECT | os.O_SYNC)
+                        m = mmap.mmap(-1, to_rcv)
+                    else:
+                        fd = os.open(root+filename, os.O_CREAT | os.O_RDWR)
 
+                    os.lseek(fd, offset, os.SEEK_SET)
+                    log.debug("Receiving file: {0}".format(filename))
                     chunk = client.recv(chunk_size.value)
-#                     m.write(chunk)
+
                     while chunk:
-                        logger.debug("Chunk Size: {0}".format(len(chunk)))
-                        file.write(chunk)
-#                         os.write(fd, m)
+                        log.debug("Chunk Size: {0}".format(len(chunk)))
+                        if direct_io:
+                            m.write(chunk)
+                            os.write(fd, m)
+                        else:
+                            os.write(fd, chunk)
+
                         to_rcv -= len(chunk)
                         total += len(chunk)
 
                         if to_rcv > 0:
                             chunk = client.recv(min(chunk_size.value, to_rcv))
                         else:
-                            logger.debug("Successfully received file: {0}".format(filename))
+                            log.debug("Successfully received file: {0}".format(filename))
                             break
 
-                    file.close()
-#                     os.close(fd)
+                    os.close(fd)
                 else:
                     chunk = client.recv(chunk_size.value)
                     while chunk:
@@ -79,32 +71,19 @@ def worker(sock, process_num):
                 d = client.recv(1).decode()
 
             total = np.round(total/(1024*1024))
-            logger.info("{u} exited. total received {d} MB".format(u=address, d=total))
+            log.info("{u} exited. total received {d} MB".format(u=address, d=total))
             client.close()
             process_status[process_num] = 0
         except Exception as e:
-            logger.error(str(e))
+            log.error(str(e))
             # raise e
 
 
-def always_accept(value):
-    if value or not value:
-        return True
-
-
-def load_public_pem(filename):
-    with open(filename, 'rb') as pem_in:
-        pem = pem_in.read()
-
-    return pem
-
-
 if __name__ == '__main__':
-    # Redis Connection
-    r = Redis(redis_host, redis_port, retry_on_timeout=True)
-
-    # Get Remote Server Public Key
-    public_pem = load_public_pem('publickey.pem')
+    direct_io = False
+    file_transfer = True
+    if "file_transfer" in configurations and configurations["file_transfer"] is not None:
+        file_transfer = configurations["file_transfer"]
 
     num_workers = configurations['max_cc']
     if num_workers == -1:
