@@ -131,3 +131,4 @@ test-output
 *.log
 .DS_Store
 **/*.pem
+**/*.json
