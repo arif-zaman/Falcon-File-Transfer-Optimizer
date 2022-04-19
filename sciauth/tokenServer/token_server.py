@@ -67,7 +67,7 @@ def prepare_scope(username, address):
         for key in values:
             scopes += f"{key}:/{username}/{values[key]} "
     else:
-        configs = config_tbl.search((query.site_address == address))
+        configs = config_tbl.search((query.site_address == address) & (query.user == "ALL"))
         if len(configs)>0:
             values = configs[0]["scopes"]
             for key in values:
@@ -97,8 +97,8 @@ class IssueToken(Resource):
             token = scitokens.SciToken(key=private_key)
             token["user"] = user_name
             token["email"] = user_email
-            token['source'] = source
-            token['destination'] = dest
+            # token['source'] = source
+            # token['destination'] = dest
 
             ## Source Token
             scopes_src = prepare_scope(user_name, source)
