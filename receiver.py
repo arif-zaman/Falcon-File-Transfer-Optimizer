@@ -93,23 +93,29 @@ if __name__ == '__main__':
     sock.bind((HOST, PORT))
     sock.listen(num_workers)
 
-    process_status = mp.Array("i", [0 for _ in range(num_workers)])
-    workers = [mp.Process(target=worker, args=(sock, i,)) for i in range(num_workers)]
-    for p in workers:
-        p.daemon = True
-        p.start()
+    iter = 0
+    while True:
+        iter += 1
+        log.info(f">>>>>> Iterations: {iter} >>>>>>")
 
-    process_status[0] = 1
-    alive = num_workers
-    while alive>0:
-        alive = 0
-        for i in range(num_workers):
-            if process_status[i] == 1:
-                alive += 1
 
-        time.sleep(0.1)
+        process_status = mp.Array("i", [0 for _ in range(num_workers)])
+        workers = [mp.Process(target=worker, args=(sock, i,)) for i in range(num_workers)]
+        for p in workers:
+            p.daemon = True
+            p.start()
 
-    for p in workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
+        process_status[0] = 1
+        alive = num_workers
+        while alive>0:
+            alive = 0
+            for i in range(num_workers):
+                if process_status[i] == 1:
+                    alive += 1
+
+            time.sleep(0.1)
+
+        for p in workers:
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=0.1)
