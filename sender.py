@@ -2,12 +2,15 @@
 
 import os
 import time
+import uuid
 import socket
 import warnings
 import datetime
 import numpy as np
 import logging as log
 import multiprocessing as mp
+from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 from config_sender import configurations
 from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_opt_fast
 
@@ -52,10 +55,25 @@ emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
     emulab_test = configurations["emulab_test"]
 
+centralized = False
+if "centralized" in configurations and configurations["centralized"] is not None:
+    centralized = configurations["centralized"]
+
+executor = ThreadPoolExecutor(max_workers=5)
+if centralized:
+    from redis import Redis
+    transfer_id = str(uuid.uuid4())
+    ## Redis Config
+    hostname = os.environ.get("REDIS_HOSTNAME", "localhost")
+    port = os.environ.get("REDIS_PORT", 6379)
+    send_key = f"report:{transfer_id}"
+    receive_key = f"cc:{transfer_id}"
+    register_key = f"transfer-registration"
+    r_conn = Redis(hostname, port, retry_on_timeout=True)
+
 file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
-
 
 manager = mp.Manager()
 root = configurations["data_dir"]
@@ -65,6 +83,7 @@ file_sizes = [os.path.getsize(root+filename) for filename in file_names]
 file_count = len(file_names)
 throughput_logs = manager.list()
 
+exit_signal = 10 ** 10
 chunk_size = 1 * 1024 * 1024
 num_workers = mp.Value("i", 0)
 file_incomplete = mp.Value("i", file_count)
@@ -189,14 +208,75 @@ def worker(process_id, q):
     process_status[process_id] = 0
 
 
+def event_receiver():
+    while file_incomplete.value > 0:
+        try:
+            resp = r_conn.xread({receive_key: 0}, count=None)
+            if resp:
+                key, messages = resp[0]
+                for message in messages:
+                    _, data = message
+                    cc = int(data[b"cc"].decode("utf-8"))
+                    r_conn.delete(key)
+
+                    num_workers.value = 1 if cc<1 else int(np.round(cc))
+                    log.info("Sample Transfer -- Probing Parameters: {0}".format(num_workers.value))
+
+                    current_cc = np.sum(process_status)
+                    for i in range(configurations["thread_limit"]):
+                        if (i < num_workers.value) and (i >= current_cc):
+                            process_status[i] = 1
+                        else:
+                            process_status[i] = 0
+
+                    log.debug("Active CC: {0}".format(np.sum(process_status)))
+        except Exception as e:
+            log.exception(e)
+
+
+def event_sender(sc, rc):
+    B, K = int(configurations["B"]), float(configurations["K"])
+    score = exit_signal
+    if file_incomplete.value > 0:
+        thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 1 else 0
+        lr = rc/sc if (sc>rc and sc!= 0) else 0
+
+        # score = thrpt
+        plr_impact = B*lr
+        # cc_impact_lin = (K-1) * num_workers.value
+        # score = thrpt * (1- plr_impact - cc_impact_lin)
+        cc_impact_nl = K**num_workers.value
+        score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+        score = np.round(score * (-1))
+
+    try:
+        data = {}
+        data["score"] = int(score)
+        r_conn.xadd(send_key, data)
+    except Exception as e:
+        log.exception(e)
+
+
+def run_centralized():
+    receiver_thread = Thread(target=event_receiver)
+    receiver_thread.start()
+
+    prev_sc, prev_rc = tcp_stats()
+    while file_incomplete.value > 0:
+        time.sleep(0.9)
+        curr_sc, curr_rc = tcp_stats()
+        sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
+        prev_sc, prev_rc = curr_sc, curr_rc
+        executor.submit(event_sender, sc, rc)
+
+
 def sample_transfer(params):
-    global throughput_logs
+    global throughput_logs, exit_signal
+
     if file_incomplete.value == 0:
-        return 10 ** 10
+        return exit_signal
 
-    params = [int(np.round(x)) for x in params]
-    params = [1 if x<1 else x for x in params]
-
+    params = [1 if x<1 else int(np.round(x)) for x in params]
     log.info("Sample Transfer -- Probing Parameters: {0}".format(params))
     num_workers.value = params[0]
 
@@ -211,35 +291,35 @@ def sample_transfer(params):
     log.debug("Active CC: {0}".format(np.sum(process_status)))
 
     time.sleep(1)
-    before_sc, before_rc = tcp_stats()
+    prev_sc, prev_rc = tcp_stats()
     n_time = time.time() + probing_time - 1.1
     # time.sleep(n_time)
     while (time.time() < n_time) and (file_incomplete.value > 0):
         time.sleep(0.1)
 
-    after_sc, after_rc = tcp_stats()
-    sc, rc = after_sc - before_sc, after_rc - before_rc
+    curr_sc, curr_rc = tcp_stats()
+    sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
 
-    log.info("SC: {0}, RC: {1}".format(sc, rc))
+    log.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
 
     lr, B, K = 0, int(configurations["B"]), float(configurations["K"])
     if sc != 0:
         lr = rc/sc if sc>rc else 0
 
-    cc_impact_nl = K**num_workers.value
-    # cc_impact_lin = (K-1) * num_workers.value
-    plr_impact = B*lr
     # score = thrpt
-    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+    plr_impact = B*lr
+    # cc_impact_lin = (K-1) * num_workers.value
     # score = thrpt * (1- plr_impact - cc_impact_lin)
+    cc_impact_nl = K**num_workers.value
+    score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     score_value = np.round(score * (-1))
 
     log.info("Sample Transfer -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
     if file_incomplete.value == 0:
-        return 10 ** 10
+        return exit_signal
     else:
         return score_value
 
@@ -256,8 +336,12 @@ def normal_transfer(params):
 
 
 def run_transfer():
-    params = []
-    if configurations["method"].lower() == "random":
+    params = [2]
+
+    if centralized:
+        run_centralized()
+
+    elif configurations["method"].lower() == "random":
         log.info("Running Random Optimization .... ")
         params = dummy(configurations, sample_transfer, log)
 
@@ -302,7 +386,7 @@ def report_throughput(start_time):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining >= 1:
+        if time_since_begining >= 0.1:
             total_bytes = np.sum(file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
 
@@ -312,13 +396,21 @@ def report_throughput(start_time):
             previous_time, previous_total = time_since_begining, total_bytes
             throughput_logs.append(curr_thrpt)
             m_avg = np.round(np.mean(throughput_logs[-60:]), 2)
+
             log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps, 60Sec_Average: {3}Mbps".format(
                 time_since_begining, curr_thrpt, thrpt, m_avg))
+
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
 
 if __name__ == '__main__':
+    if centralized:
+        try:
+            r_conn.xadd(register_key, {"transfer_id": transfer_id})
+        except ConnectionError as e:
+            log.error(f"Redis Connection Error: {e}")
+
     q = manager.Queue(maxsize=file_count)
     for i in range(file_count):
         q.put(i)
