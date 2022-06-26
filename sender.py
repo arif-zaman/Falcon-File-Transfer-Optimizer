@@ -9,6 +9,8 @@ import datetime
 import numpy as np
 import logging as log
 import multiprocessing as mp
+from threading import Thread
+from concurrent.futures import ThreadPoolExecutor
 from config_sender import configurations
 from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_opt_fast
 
@@ -57,6 +59,7 @@ centralized = False
 if "centralized" in configurations and configurations["centralized"] is not None:
     centralized = configurations["centralized"]
 
+executor = ThreadPoolExecutor(max_workers=5)
 if centralized:
     from redis import Redis
     transfer_id = str(uuid.uuid4())
@@ -80,6 +83,7 @@ file_sizes = [os.path.getsize(root+filename) for filename in file_names]
 file_count = len(file_names)
 throughput_logs = manager.list()
 
+exit_signal = 10 ** 10
 chunk_size = 1 * 1024 * 1024
 num_workers = mp.Value("i", 0)
 file_incomplete = mp.Value("i", file_count)
@@ -205,13 +209,13 @@ def worker(process_id, q):
 
 
 def event_receiver():
-    while True:
-        if file_incomplete.value > 0:
-            try:
-                resp = r_conn.xread({receive_key: 0}, count=1)
-                if resp:
-                    key, messages = resp[0]
-                    _, data = messages[-1]
+    while file_incomplete.value > 0:
+        try:
+            resp = r_conn.xread({receive_key: 0}, count=None)
+            if resp:
+                key, messages = resp[0]
+                for message in messages:
+                    _, data = message
                     cc = int(data[b"cc"].decode("utf-8"))
                     r_conn.delete(key)
 
@@ -220,71 +224,54 @@ def event_receiver():
 
                     current_cc = np.sum(process_status)
                     for i in range(configurations["thread_limit"]):
-                        if i < num_workers.value:
-                            if (i >= current_cc):
-                                process_status[i] = 1
+                        if (i < num_workers.value) and (i >= current_cc):
+                            process_status[i] = 1
                         else:
                             process_status[i] = 0
 
                     log.debug("Active CC: {0}".format(np.sum(process_status)))
-            except Exception as e:
-                log.exception(e)
-
-        break
-
-
-def event_sender(before_sc, before_rc):
-    exit_signal = 10 ** 10
-    B, K = int(configurations["B"]), float(configurations["K"])
-    after_sc, after_rc = 0, 0
-    while True:
-        score = exit_signal
-        if file_incomplete.value > 0:
-            time.sleep(1)
-            after_sc, after_rc = tcp_stats()
-            sc, rc = after_sc - before_sc, after_rc - before_rc
-            thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
-            lr = 0
-            if sc != 0:
-                lr = rc/sc if sc>rc else 0
-
-            # score = thrpt
-            plr_impact = B*lr
-            # cc_impact_lin = (K-1) * num_workers.value
-            # score = thrpt * (1- plr_impact - cc_impact_lin)
-            cc_impact_nl = K**num_workers.value
-            score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
-            score = np.round(score * (-1))
-
-        try:
-            data = {
-                "score": int(score),
-            }
-
-            r_conn.xadd(send_key, data)
-
         except Exception as e:
             log.exception(e)
 
-        break
 
-    return after_sc, after_rc, score == exit_signal
+def event_sender(sc, rc):
+    B, K = int(configurations["B"]), float(configurations["K"])
+    score = exit_signal
+    if file_incomplete.value > 0:
+        thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 1 else 0
+        lr = rc/sc if (sc>rc and sc!= 0) else 0
+
+        # score = thrpt
+        plr_impact = B*lr
+        # cc_impact_lin = (K-1) * num_workers.value
+        # score = thrpt * (1- plr_impact - cc_impact_lin)
+        cc_impact_nl = K**num_workers.value
+        score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
+        score = np.round(score * (-1))
+
+    try:
+        data = {}
+        data["score"] = int(score)
+        r_conn.xadd(send_key, data)
+    except Exception as e:
+        log.exception(e)
 
 
 def run_centralized():
-    event_receiver()
-    before_sc, before_rc = tcp_stats()
-    complete = False
+    receiver_thread = Thread(target=event_receiver)
+    receiver_thread.start()
 
-    while not complete:
+    prev_sc, prev_rc = tcp_stats()
+    while file_incomplete.value > 0:
         time.sleep(0.9)
-        before_sc, before_rc, complete = event_sender(before_sc, before_rc)
-        event_receiver()
+        curr_sc, curr_rc = tcp_stats()
+        sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
+        prev_sc, prev_rc = curr_sc, curr_rc
+        executor.submit(event_sender, sc, rc)
 
 
 def sample_transfer(params):
-    global throughput_logs
-    exit_signal = 10 ** 10
+    global throughput_logs, exit_signal
 
     if file_incomplete.value == 0:
         return exit_signal
@@ -304,14 +291,14 @@ def sample_transfer(params):
     log.debug("Active CC: {0}".format(np.sum(process_status)))
 
     time.sleep(1)
-    before_sc, before_rc = tcp_stats()
+    prev_sc, prev_rc = tcp_stats()
     n_time = time.time() + probing_time - 1.1
     # time.sleep(n_time)
     while (time.time() < n_time) and (file_incomplete.value > 0):
         time.sleep(0.1)
 
-    after_sc, after_rc = tcp_stats()
-    sc, rc = after_sc - before_sc, after_rc - before_rc
+    curr_sc, curr_rc = tcp_stats()
+    sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
 
     log.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
     thrpt = np.mean(throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
@@ -410,9 +397,9 @@ def report_throughput(start_time):
             throughput_logs.append(curr_thrpt)
             m_avg = np.round(np.mean(throughput_logs[-60:]), 2)
 
-            # log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps, 60Sec_Average: {3}Mbps".format(
-            #     time_since_begining, curr_thrpt, thrpt, m_avg))
-            log.info("Throughput @{0}s: {1}Mbps".format(time_since_begining, curr_thrpt))
+            log.info("Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps, 60Sec_Average: {3}Mbps".format(
+                time_since_begining, curr_thrpt, thrpt, m_avg))
+
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
@@ -422,7 +409,7 @@ if __name__ == '__main__':
         try:
             r_conn.xadd(register_key, {"transfer_id": transfer_id})
         except ConnectionError as e:
-            log.error(f"ERROR REDIS CONNECTION: {e}")
+            log.error(f"Redis Connection Error: {e}")
 
     q = manager.Queue(maxsize=file_count)
     for i in range(file_count):

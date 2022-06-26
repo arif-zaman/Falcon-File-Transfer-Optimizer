@@ -5,7 +5,8 @@ import numpy as np
 import logging as log
 from statistics import mean
 from redis import Redis
-from threading import Thread
+from threading import Thread, Lock
+from concurrent.futures import ThreadPoolExecutor
 from search import  base_optimizer, gradient_opt_fast
 
 
@@ -18,6 +19,8 @@ log.basicConfig(
 
 stop = 0
 exit_signal = 10 ** 10
+lock = Lock()
+executor = ThreadPoolExecutor(max_workers=15)
 ## Redis Config
 hostname = os.environ.get("REDIS_HOSTNAME", "localhost")
 port = os.environ.get("REDIS_PORT", 6379)
@@ -25,70 +28,99 @@ send_key = "cc:{0}"
 receive_key = "report:{0}"
 register_key = f"transfer-registration"
 r_conn = Redis(hostname, port, retry_on_timeout=True)
-curr_cc = 1
+default_cc, curr_cc = 1, 1
 cc_updated = 0
+r_block = 3
 transfers = dict()
 
 
-def event_send_cc(transfer_id):
+def event_send_cc(transfer_id, new=False):
     try:
-        r_conn.xadd(send_key.format(transfer_id),{"cc": curr_cc})
+        if new:
+            r_conn.xadd(send_key.format(transfer_id),{"cc": default_cc})
+        else:
+            r_conn.xadd(send_key.format(transfer_id),{"cc": curr_cc})
+
     except Exception as e:
         log.exception(e)
+
+
+def cc_update_manager():
+    global cc_updated, transfers
+    while stop == 0:
+        if cc_updated == 1:
+            for id in transfers:
+                executor.submit(event_send_cc, id, False)
+
+            time.sleep(1)
+            # lock.acquire()
+            cc_updated = 0
+            # lock.release()
 
 
 def event_get_report(transfer_id):
     global transfers
     try:
-        resp = r_conn.xread(streams={receive_key.format(transfer_id): 0}, count=None, block=1)
+        resp = r_conn.xread(streams={receive_key.format(transfer_id): 0}, count=None, block=r_block)
         if resp:
             key, messages = resp[0]
             r_conn.delete(key)
-            _, data = messages[-1]
-            transfers[transfer_id] = int(data["score".encode()].decode())
-            log.info(transfers)
+            for message in messages:
+                _, data = message
+                lock.acquire()
+
+                transfers[transfer_id] = int(data["score".encode()].decode())
+                log.info(f'Transfer ID -- {transfer_id}: {transfers[transfer_id]}')
+                if transfers[transfer_id] == exit_signal:
+                    del transfers[transfer_id]
+
+                lock.release()
 
     except Exception as e:
         log.exception(e)
 
 
-def register():
-    global transfers
-    try:
-        resp = r_conn.xread(streams={register_key: 0}, count=1, block=1)
-        if resp:
-            key, messages = resp[0]
-            r_conn.delete(key)
-            _, data = messages[-1]
-            transfer_id = data["transfer_id".encode()].decode()
-            transfers[transfer_id] = 0 if len(transfers.values()) < 2 else mean(transfers.values())
-            event_send_cc(transfer_id)
-
-    except Exception as e:
-        log.exception(e)
-
-
-def redis_manager():
-    global transfers, cc_updated
+def score_report_manager():
+    global cc_updated, transfers
     while stop == 0:
-        register()
-        keys = list(transfers.keys())
-        for key in keys:
-            event_get_report(key)
+        for id in transfers:
+            executor.submit(event_get_report, id)
 
-            if transfers[key] == exit_signal:
-                del transfers[key]
+        time.sleep(.1)
 
-        if cc_updated == 1:
-            for id in transfers:
-                event_send_cc(id)
 
-            cc_updated = 0
+def register_manager():
+    global transfers
+
+    while stop == 0:
+        try:
+            resp = r_conn.xread(streams={register_key: 0}, count=1, block=r_block)
+            if resp:
+                key, messages = resp[0]
+                r_conn.delete(key)
+                for message in messages:
+                    _, data = message
+                    transfer_id = data["transfer_id".encode()].decode()
+                    # lock.acquire()
+                    transfers[transfer_id] = 0 #if len(transfers.values()) < 2 else mean(transfers.values())
+                    # lock.release()
+
+                    executor.submit(event_send_cc, transfer_id, True)
+
+        except Exception as e:
+            log.exception(e)
+
+        time.sleep(1)
 
 
 def sampling(params):
     global curr_cc, cc_updated
-    curr_cc = int(np.ceil(params[0]/len(transfers)))
+    n = len(transfers)
+    if n == 0:
+        curr_cc = default_cc
+        return exit_signal
+
+    curr_cc = int(np.ceil(params[0]/n))
     cc_updated = 1
 
     time.sleep(3)
@@ -109,7 +141,7 @@ def run_optimizer(method):
         while len(transfers) == 0:
             time.sleep(0.01)
 
-        time.sleep(2)
+        time.sleep(1)
         if method == "bayes":
             base_optimizer(configurations, sampling, log)
 
@@ -129,8 +161,14 @@ signal.signal(signal.SIGINT, handler)
 
 
 if __name__ == "__main__":
-    t = Thread(target=redis_manager)
-    t.start()
+    register_thread = Thread(target=register_manager)
+    register_thread.start()
 
-    run_optimizer("bayes")
+    update_thread = Thread(target=cc_update_manager)
+    update_thread.start()
+
+    report_thread = Thread(target=score_report_manager)
+    report_thread.start()
+
+    run_optimizer("gradient")
 
