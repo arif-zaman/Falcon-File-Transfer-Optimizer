@@ -123,7 +123,7 @@ def sampling(params):
     curr_cc = int(np.ceil(params[0]/n))
     cc_updated = 1
 
-    time.sleep(3)
+    time.sleep(4.9)
     return sum(transfers.values())
 
 

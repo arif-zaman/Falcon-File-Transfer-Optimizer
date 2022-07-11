@@ -1,6 +1,6 @@
 configurations = {
     "receiver": {
-        "host": "134.197.113.70",
+        "host": "10.10.2.1",
         "port": 50021
     },
     "data_dir": "/data/arif/",
