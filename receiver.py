@@ -2,7 +2,7 @@ import os
 import mmap
 import time
 import socket
-import logging
+import logging as log
 import numpy as np
 import multiprocessing as mp
 from config_receiver import configurations
@@ -11,10 +11,23 @@ chunk_size = mp.Value("i", 1024*1024)
 root = configurations["data_dir"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 
+log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
-    log = mp.log_to_stderr(logging.DEBUG)
+    log.basicConfig(
+        format=log_FORMAT,
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        level=log.DEBUG,
+    )
+
+    mp.log_to_stderr(log.DEBUG)
 else:
-    log = mp.log_to_stderr(logging.INFO)
+    log.basicConfig(
+        format=log_FORMAT,
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        level=log.INFO
+    )
+
+    mp.log_to_stderr(log.INFO)
 
 
 def worker(sock, process_num):
@@ -46,7 +59,7 @@ def worker(sock, process_num):
                     chunk = client.recv(chunk_size.value)
 
                     while chunk:
-                        log.debug("Chunk Size: {0}".format(len(chunk)))
+                        # log.debug("Chunk Size: {0}".format(len(chunk)))
                         if direct_io:
                             m.write(chunk)
                             os.write(fd, m)
@@ -94,7 +107,7 @@ if __name__ == '__main__':
     sock.listen(num_workers)
 
     iter = 0
-    while True:
+    while iter<1:
         iter += 1
         log.info(f">>>>>> Iterations: {iter} >>>>>>")
 
@@ -104,6 +117,12 @@ if __name__ == '__main__':
         for p in workers:
             p.daemon = True
             p.start()
+
+        # while True:
+        #     try:
+        #         time.sleep(1)
+        #     except:
+        #         break
 
         process_status[0] = 1
         alive = num_workers

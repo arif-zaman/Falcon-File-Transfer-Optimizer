@@ -167,7 +167,7 @@ def worker(process_id, q):
                         while (to_send > 0) and (process_status[process_id] == 1):
                             if emulab_test:
                                 block_size = min(chunk_size, second_target-second_data_count)
-                                data_to_send = bytearray(block_size)
+                                data_to_send = bytearray(int(block_size))
                                 sent = sock.send(data_to_send)
                             else:
                                 block_size = min(chunk_size, to_send)
@@ -176,7 +176,7 @@ def worker(process_id, q):
                                     sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
                                     # data = os.preadv(file, block_size, offset)
                                 else:
-                                    data_to_send = bytearray(block_size)
+                                    data_to_send = bytearray(int(block_size))
                                     sent = sock.send(data_to_send)
 
                             offset += sent
