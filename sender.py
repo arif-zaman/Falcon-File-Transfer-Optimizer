@@ -51,6 +51,9 @@ else:
         ]
     )
 
+    mp.log_to_stderr(log.INFO)
+
+
 emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
     emulab_test = configurations["emulab_test"]
@@ -219,13 +222,15 @@ def event_receiver():
                     cc = int(data[b"cc"].decode("utf-8"))
                     r_conn.delete(key)
 
-                    num_workers.value = 1 if cc<1 else int(np.round(cc))
+                    cc = 1 if cc<1 else int(np.round(cc))
+                    num_workers.value = cc
                     log.info("Sample Transfer -- Probing Parameters: {0}".format(num_workers.value))
 
                     current_cc = np.sum(process_status)
                     for i in range(configurations["thread_limit"]):
-                        if (i < num_workers.value) and (i >= current_cc):
-                            process_status[i] = 1
+                        if i < cc:
+                            if (i >= current_cc):
+                                process_status[i] = 1
                         else:
                             process_status[i] = 0
 
