@@ -1,4 +1,4 @@
-### Modified from following Repository: https://github.com/earslan58/JGlobus
+#### Modified from following Repository: https://github.com/earslan58/JGlobus
 
 *************
 
@@ -13,22 +13,31 @@
 
 ## Usage
 
-1. cd into Falcon-GridFTP and run `mvn compile; mvn install -DskipTests`
-2. cd into AdaptiveGridFTPClient and run `mvn compile; mvn install` 
-3. Open another terminal and cd into src/main/python and run `python3 socket_gradient.py`
-4. Add a configuration file (config.cfg) in src/main/resources/ and edit as described below. See the sample config file in  src/main/resources/sample_config.cfg
-5. cd into AdaptiveGridFTPClient and run `mvn exec:java` to run the code
+1. For local data transfer nodes: install globus toolkits and spwan gridftp server on both sender and receiver hosts. For example:
+     #### sender: 
+     `globus-gridftp-server -aa -p <source_port> -data-interface <source_ip> &`
+     #### receiver:
+     `globus-gridftp-server -aa -p <dest_port> -data-interface <dest_ip> &`
 
-## Configuration File
-  **-s** $Source_GridFTP_Server  
-  **-d** $Destination_GridFTP_Server  
-  **-proxy** $Proxy_file_path (Default will try to read from /tmp for running user id)  
-  **-cc** $maximum_allowed_concurrency (HARP Specific, does not have impact on Falcon)  
-  **-rtt** $rtt (round trip time between source and destination [HARP Only]) in ms
-  **-bw** $bw (Maximum bandwidth between source and destination [HARP Only]) in Gbps
-  **-bs** $buffer_size (TCP buffer size of minimum of source's read and destination's write in MB)
-  **-model** $optimization model (put: gradient [Future work]. it connects to the local server for parameters update. Current implementation uses whatever algorithms runinng on that server.)   
-  **[-single-chunk]** (Will use Single Chunk [SC](http://dl.acm.org/citation.cfm?id=2529904) approach to schedule transfer. Will transfer one chunk at a time)  
-  **[-useHysterisis]** (Will use historical data to run modelling and estimate transfer parameters. [HARP]. Requires python to be installed with scipy and sklearn packages)  
-  **[-use-dynamic-scheduling]** (Provides dynamic channel reallocation between chunks while transfer is running [ProMC](http://dl.acm.org/citation.cfm?id=2529904))  
-  **[-use-online-tuning]** (Provides continous tuning capability to historical data based modeling [HARP](https://ieeexplore.ieee.org/abstract/document/8249824))  
+2. edit configuration file (Falcon-GridFTP/AdaptiveGridFTPClient/src/main/resources/config.cfg), for local ftp server:
+ 
+    #### sender: Use gsiftp// for gsi authenticated endpoints and ftp:// for the rest
+    `-s ftp://<source_ip>:<source_port>/data/arif/`
+    #### receiver: Use gsiftp// for gsi authenticated endpoints and ftp:// for the rest
+    `-d ftp://<dest_ip>:<dest_port>/data/arif/`
+    #### RTT between sender and receiver (milliseconds), below one is for 1 ms RTT
+    `-rtt 1`
+    #### Bandwidth in Gbps, below one is for 40Gbps network bandwidth
+    `-bandwidth 40`
+    #### Buffer size in MB, below one is for 32 MB maximum TCP buffer size
+    `-bs 32`
+    #### Maximum number of concurrent threads
+    `-maxcc 20`
+    #### keep it as it is for gradient optimization
+    `-model gradient`
+
+3. cd into `Falcon-GridFTP/AdaptiveGridFTPClient/src/main/python/` folder; then run the optimization server: `python3 socket_gradient.py`
+
+4. open another terminal; cd into `Falcon-GridFTP/AdaptiveGridFTPClient/` folder; then run: `mvn compile; mvn install -DskipTests`
+
+5. if compilation is successful, then run the transfer: `mvn exec:java`
