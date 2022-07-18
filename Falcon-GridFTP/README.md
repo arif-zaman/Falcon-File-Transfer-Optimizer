@@ -13,18 +13,18 @@
 
 ## Usage
 
-1. For local data transfer nodes: install globus toolkits and spwan gridftp server on both sender and receiver hosts. For example:
+1. For local data transfer nodes: install globus toolkits (https://gridcf.org/gct-docs/latest/admin/install/); then spwan gridftp server on both sender and receiver hosts. For example:
      #### sender: 
      `globus-gridftp-server -aa -p <source_port> -data-interface <source_ip> &`
      #### receiver:
      `globus-gridftp-server -aa -p <dest_port> -data-interface <dest_ip> &`
 
-2. edit configuration file (Falcon-GridFTP/AdaptiveGridFTPClient/src/main/resources/config.cfg), for local ftp server:
+2. edit configuration file (Falcon-GridFTP/AdaptiveGridFTPClient/src/main/resources/config.cfg):
  
     #### sender: Use gsiftp// for gsi authenticated endpoints and ftp:// for the rest
-    `-s ftp://<source_ip>:<source_port>/data/arif/`
+    `-s ftp://<source_ip>:<source_port>/path/to/transfer/dataset` or `-s gsiftp://source-ip:source-port/path/to/transfer/dataset`
     #### receiver: Use gsiftp// for gsi authenticated endpoints and ftp:// for the rest
-    `-d ftp://<dest_ip>:<dest_port>/data/arif/`
+    `-d ftp://<dest_ip>:<dest_port>/path/to/transfer/dataset` or `-d gsiftp://destination-ip:destination-port/path/to/transfer/dataset`
     #### RTT between sender and receiver (milliseconds), below one is for 1 ms RTT
     `-rtt 1`
     #### Bandwidth in Gbps, below one is for 40Gbps network bandwidth
