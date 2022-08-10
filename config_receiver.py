@@ -4,7 +4,7 @@ configurations = {
         "port": 50021
     },
     "data_dir": "/data/dest_dir/",
-    "max_cc": 32,
+    "max_cc": 20,
     "file_transfer": True,
     "loglevel": "info",
 }
