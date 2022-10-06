@@ -1,4 +1,3 @@
-import chunk
 import os
 import mmap
 import time
@@ -8,6 +7,7 @@ import numpy as np
 import subprocess
 import multiprocessing as mp
 from config_receiver import configurations
+from utils import available_space, run
 
 chunk_size = mp.Value("i", 1024*1024)
 root_dir = configurations["data_dir"]
@@ -15,8 +15,10 @@ tmpfs_dir = "/dev/shm/data/"
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 transfer_complete = mp.Value("i", 0)
 move_complete = mp.Value("i", 0)
+cleanup_complete = mp.Value("i", 0)
 transfer_done = mp.Value("i", 0)
 mQueue = mp.Queue()
+gQueue = mp.Queue()
 start, end = mp.Value("i", 0), mp.Value("i", 0)
 
 direct_io = False
@@ -47,18 +49,8 @@ else:
     mp.log_to_stderr(logger.INFO)
 
 
-def run(cmd):
-    cmd_output = subprocess.run(cmd.split())
-
-    logger.debug(f'[{cmd!r} exited with {cmd_output.returncode}]')
-    if cmd_output.stdout:
-        logger.debug(f'[stdout]\fcount{cmd_output.decode()}')
-    if cmd_output.stderr:
-        logger.debug(f'[stderr]\fcount{cmd_output.decode()}')
-
-
-def move_file(indx):
-    logger.info(f'Starting File Mover Thread: {indx}')
+def move_file(process_id):
+    logger.info(f'Starting File Mover Thread: {process_id}')
     while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
         try:
             fname = mQueue.get()
@@ -89,23 +81,44 @@ def move_file(indx):
                     chunk = ff.read(1024*1024)
 
             move_complete.value = move_complete.value + 1
+            gQueue.put(fname)
             logger.info(f'I/O :: {fname} moved to {root_dir}')
         except Exception as e:
             logger.exception(e)
             time.sleep(0.1)
 
-    logger.info(f'Exiting File Mover Thread: {indx}')
+    logger.info(f'Exiting File Mover Thread: {process_id}')
 
 
-def receive_file(sock, process_num):
+def garbage_collector(process_id):
+    logger.info(f'Starting Garbage Collector Thread: {process_id}')
+    while transfer_done.value == 0 or cleanup_complete.value < transfer_complete.value:
+        try:
+            fname = gQueue.get()
+            run(f'rm {tmpfs_dir}{fname}', logger)
+            cleanup_complete.value = cleanup_complete.value + 1
+            logger.info(f'GARBAGE COLLECTOR :: {fname} removed from tempfs!')
+
+        except Exception as e:
+            logger.exception(e)
+            time.sleep(0.1)
+
+    logger.info(f'Exiting Garbage Collector Thread: {process_id}')
+
+
+def receive_file(sock, process_id):
     while True:
         try:
             client, address = sock.accept()
             logger.info("{u} connected".format(u=address))
+
+            while available_space() < 15:
+                time.sleep(0.01)
+
             if start.value == 0:
                 start.value = int(time.time())
 
-            process_status[process_num] = 1
+            process_status[process_id] = 1
             total = 0
             d = client.recv(1).decode()
             while d:
@@ -146,7 +159,6 @@ def receive_file(sock, process_num):
                             transfer_complete.value = transfer_complete.value + 1
                             mQueue.put(filename)
                             break
-
                     os.close(fd)
                 else:
                     chunk = client.recv(chunk_size.value)
@@ -158,7 +170,7 @@ def receive_file(sock, process_num):
             total = np.round(total/(1024*1024))
             logger.info("{u} exited. total received {d} MB".format(u=address, d=total))
             client.close()
-            process_status[process_num] = 0
+            process_status[process_id] = 0
         except Exception as e:
             logger.error(str(e))
             # raise e
@@ -185,8 +197,13 @@ if __name__ == '__main__':
             p.daemon = True
             p.start()
 
-        io_workers = [mp.Process(target=move_file, args=(i,)) for i in range(12)]
+        io_workers = [mp.Process(target=move_file, args=(i,)) for i in range(num_workers)]
         for p in io_workers:
+            p.daemon = True
+            p.start()
+
+        cleanup_workers = [mp.Process(target=garbage_collector, args=(i,)) for i in range(5)]
+        for p in cleanup_workers:
             p.daemon = True
             p.start()
 
@@ -204,8 +221,8 @@ if __name__ == '__main__':
             time.sleep(0.1)
 
         transfer_done.value = 1
-        while move_complete.value < transfer_complete.value:
-            time.sleep(0.1)
+        while cleanup_complete.value < transfer_complete.value:
+            time.sleep(0.01)
 
         # logger.info(transfer_complete.value)
         time_since_begining = int(time.time()) - start.value
@@ -216,6 +233,11 @@ if __name__ == '__main__':
                 p.join(timeout=0.1)
 
         for p in io_workers:
+            if p.is_alive():
+                p.terminate()
+                p.join(timeout=0.1)
+
+        for p in cleanup_workers:
             if p.is_alive():
                 p.terminate()
                 p.join(timeout=0.1)

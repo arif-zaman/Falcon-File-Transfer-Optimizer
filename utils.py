@@ -1,8 +1,8 @@
-from asyncio.log import logger
 import os
 import subprocess
 import time
 import numpy as np
+import shutil
 
 
 def tcp_stats(RCVR_ADDR, logger):
@@ -44,6 +44,11 @@ def get_dir_size(logger, path="/dev/shm/"):
     total = np.round(total/10**9, 3)
     logger.debug(f"Path={path} -- Size={total} GB")
     return total
+
+
+def available_space(path="/dev/shm/"):
+    space = shutil.disk_usage(path)
+    return space.free//10**9
 
 
 def run(cmd, logger):
