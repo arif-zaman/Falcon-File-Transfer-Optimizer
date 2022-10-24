@@ -48,7 +48,7 @@ def get_dir_size(logger, path="/dev/shm/"):
 
 def available_space(path="/dev/shm/"):
     space = shutil.disk_usage(path)
-    return space.free//10**9
+    return (np.round(space.used/10**9,3), np.round(space.free/10**9,3))
 
 
 def run(cmd, logger):
