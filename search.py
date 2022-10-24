@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 import numpy as np
 import time
 
+exit_signal = 10 ** 10
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 20, 0
@@ -54,7 +55,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 count, res.x, res.fun, np.round(t2-t1, 2)))
 
         last_value = optimizer.yi[-1]
-        if last_value == 10 ** 10:
+        if last_value == exit_signal:
             logger.info("Optimizer Exits ...")
             break
 
@@ -106,7 +107,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
             logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
                 count, params, current_value, np.round(t2-t1, 2)))
 
-        if current_value == 10 ** 10:
+        if abs(current_value) == exit_signal:
             logger.info("Optimizer Exits ...")
             break
 
@@ -216,7 +217,7 @@ def brute_force(configurations, black_box_function, logger, verbose=False):
     for i in range(1, max_thread+1):
         score.append(black_box_function([i]))
 
-        if score[-1] == 10 ** 10:
+        if score[-1] == exit_signal:
             break
 
 
@@ -249,7 +250,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
 
     while True:
         values.append(run_probe(ccs[-1]-1, count+1, verbose, logger, black_box_function))
-        if values[-1] == 10 ** 10:
+        if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
 
@@ -258,7 +259,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
             soft_limit = min(ccs[-1]+10, max_thread)
 
         values.append(run_probe(ccs[-1]+1, count+2, verbose, logger, black_box_function))
-        if values[-1] == 10 ** 10:
+        if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
 
@@ -303,7 +304,7 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
         count += 1
         values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
 
-        if values[-1] == 10 ** 10:
+        if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
 
