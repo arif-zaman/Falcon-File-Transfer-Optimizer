@@ -104,7 +104,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
         t2 = time.time()
 
         if verbose:
-            logger.info("Iteration {0} Ends, Took {3} Seconds. Best Params: {1} and Score: {2}.".format(
+            logger.info("Iteration {0} Ends, Took {3} Seconds. Params: {1} and Score: {2}.".format(
                 count, params, current_value, np.round(t2-t1, 2)))
 
         if abs(current_value) == exit_signal:
