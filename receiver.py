@@ -5,7 +5,6 @@ import socket
 import warnings
 import logging as logger
 import numpy as np
-import queue
 import multiprocessing as mp
 from threading import Thread
 from config_receiver import configurations
@@ -140,8 +139,8 @@ def receive_file(sock, process_id):
         try:
             client, address = sock.accept()
             logger.debug("{u} connected".format(u=address))
-            _, free = available_space()
-            while free < 25:
+            used, free = available_space()
+            while used > 50:
                 time.sleep(0.01)
 
             if start.value == 0:
