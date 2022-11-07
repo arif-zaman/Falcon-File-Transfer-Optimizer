@@ -2,7 +2,7 @@
 
 configurations = {
     "receiver": {
-        "host": "10.10.1.2",
+        "host": "10.1.2.3",
         "port": 50021
     },
     "data_dir": "/data/arif/",
@@ -23,7 +23,7 @@ configurations = {
     "probing_sec": 3.1, # probing interval in seconds
     "multiplier": 1, # multiplier for each files, only for testing purpose
     "mp_opt": False,
-    "modular_test": False, # 1Gbps I/O limit per thread
+    "modular_test": -1, # I/O limit (Mbps) per thread
     "fixed_probing": {
         "bsize": 10,
         "thread": 8

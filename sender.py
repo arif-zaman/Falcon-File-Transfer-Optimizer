@@ -61,9 +61,9 @@ centralized = False
 if "centralized" in configurations and configurations["centralized"] is not None:
     centralized = configurations["centralized"]
 
-modular_test = False
+modular_test = 0
 if "modular_test" in configurations and configurations["modular_test"] is not None:
-    modular_test = configurations["modular_test"]
+    modular_test = int(configurations["modular_test"])
 
 executor = ThreadPoolExecutor(max_workers=5)
 if centralized:
@@ -85,7 +85,7 @@ manager = mp.Manager()
 root_dir = configurations["data_dir"]
 tmpfs_dir = "/dev/shm/data/"
 probing_time = configurations["probing_sec"]
-file_names = os.listdir(root_dir)[:100] * configurations["multiplier"]
+file_names = os.listdir(root_dir) * configurations["multiplier"]
 file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
 file_count = len(file_names)
 network_throughput_logs = manager.list()
@@ -106,6 +106,8 @@ io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
 rQueue = manager.list()
 tQueue = manager.list()
 gQueue = mp.Queue()
+_, free = available_space()
+memory_limit = free/2
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
@@ -117,14 +119,14 @@ def copy_file(process_id):
             logger.debug(f'Starting Copying Thread: {process_id}')
             try:
                 used, _ = available_space()
-                if used < 50:
+                if used < memory_limit:
                     file_id = rQueue.pop()
                     fname = file_names[file_id]
                     fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
                     with open(root_dir+fname, "rb") as ff:
                         chunk, offset = ff.read(1024*1024), 0
-                        if modular_test:
-                            target, factor = 1024, 8
+                        if modular_test > 0:
+                            target, factor = modular_test, 8
                             max_speed = (target * 1024 * 1024)/8
                             second_target, second_data_count = int(max_speed/factor), 0
                             timer100ms = time.time()
@@ -135,7 +137,7 @@ def copy_file(process_id):
                             offset += len(chunk)
                             io_file_offsets[file_id] = offset
                             # logger.info((fname, offset))
-                            if modular_test:
+                            if modular_test > 0:
                                 second_data_count += len(chunk)
                                 if second_data_count >= second_target:
                                     second_data_count = 0
@@ -211,8 +213,9 @@ def transfer_file(process_id):
                     if (to_send > 0) and (transfer_process_status[process_id] == 1):
                         filename = tmpfs_dir + file_names[file_id]
                         file = open(filename, "rb")
-                        msg = file_names[file_id] + "," + str(int(offset))
-                        msg += "," + str(int(to_send)) + "\n"
+                        msg = f"{file_count},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
+                        # msg =  + "," + str()
+                        # msg += "," + str(int(to_send)) + "\n"
                         sock.send(msg.encode())
 
                         logger.debug("starting {0}, {1}, {2}".format(process_id, file_id, filename))
