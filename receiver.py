@@ -28,6 +28,9 @@ transfer_complete = mp.Value("i", 0)
 move_complete = mp.Value("i", 0)
 cleanup_complete = mp.Value("i", 0)
 transfer_done = mp.Value("i", 0)
+filecount = mp.Value("i", 1)
+_, free = available_space()
+memory_limit = free/2
 
 io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_file_offsets = mp.Manager().dict()
@@ -44,9 +47,9 @@ file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
 
-modular_test = False
+modular_test = 0
 if "modular_test" in configurations and configurations["modular_test"] is not None:
-    modular_test = configurations["modular_test"]
+    modular_test = int(configurations["modular_test"])
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
@@ -76,8 +79,8 @@ def move_file(process_id):
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
                 with open(tmpfs_dir+fname, "rb") as ff:
                     chunk, offset = ff.read(1024*1024), 0
-                    if modular_test:
-                        target, factor = 1024, 8
+                    if modular_test > 0:
+                        target, factor = modular_test, 8
                         max_speed = (target * 1024 * 1024)/8
                         second_target, second_data_count = int(max_speed/factor), 0
                         timer100ms = time.time()
@@ -88,7 +91,7 @@ def move_file(process_id):
                         offset += len(chunk)
                         io_file_offsets[fname] = offset
                         # logger.info((fname, offset))
-                        if modular_test:
+                        if modular_test > 0:
                             second_data_count += len(chunk)
                             if second_data_count >= second_target:
                                 second_data_count = 0
@@ -135,12 +138,12 @@ def garbage_collector(process_id):
 
 
 def receive_file(sock, process_id):
-    while True:
+    while transfer_complete.value < filecount.value:
         try:
             client, address = sock.accept()
             logger.debug("{u} connected".format(u=address))
-            used, free = available_space()
-            while used > 50:
+            used, _ = available_space()
+            while used > memory_limit:
                 time.sleep(0.01)
 
             if start.value == 0:
@@ -157,7 +160,8 @@ def receive_file(sock, process_id):
 
                 if file_transfer:
                     file_stats = header.split(",")
-                    filename, offset, to_rcv = str(file_stats[0]), int(file_stats[1]), int(file_stats[2])
+                    filecount.value, filename = int(file_stats[0]), str(file_stats[1])
+                    offset, to_rcv = int(file_stats[2]), int(file_stats[3])
 
                     if direct_io:
                         fd = os.open(tmpfs_dir+filename, os.O_CREAT | os.O_RDWR | os.O_DIRECT | os.O_SYNC)
@@ -375,11 +379,8 @@ if __name__ == '__main__':
         io_optimizer_thread = Thread(target=run_optimizer, args=(io_probing,))
         io_optimizer_thread.start()
 
-        process_status[0] = 1
-        alive = num_workers
-        while alive>0:
-            alive = sum(process_status)
-            time.sleep(0.1)
+        while transfer_complete.value < filecount.value:
+            time.sleep(1)
 
         transfer_done.value = 1
         for p in transfer_workers:
@@ -403,7 +404,7 @@ if __name__ == '__main__':
         logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
             total, time_since_begining, thrpt))
 
-        while cleanup_complete.value < move_complete.value:
+        while cleanup_complete.value < transfer_complete.value:
             time.sleep(0.01)
 
         for p in cleanup_workers:
