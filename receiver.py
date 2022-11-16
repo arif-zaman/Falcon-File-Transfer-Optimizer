@@ -1,4 +1,6 @@
 import os
+import shutil
+import signal
 import mmap
 import time
 import socket
@@ -21,15 +23,14 @@ if configurations["thread_limit"] == -1:
 
 chunk_size = mp.Value("i", 1024*1024)
 root_dir = configurations["data_dir"]
-tmpfs_dir = "/dev/shm/data/"
+tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
 probing_time = configurations["probing_sec"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 transfer_complete = mp.Value("i", 0)
 move_complete = mp.Value("i", 0)
-cleanup_complete = mp.Value("i", 0)
 transfer_done = mp.Value("i", 0)
 filecount = mp.Value("i", 1)
-_, free = available_space()
+_, free = available_space("/dev/shm/")
 memory_limit = free/2
 
 io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
@@ -47,9 +48,9 @@ file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
 
-modular_test = 0
-if "modular_test" in configurations and configurations["modular_test"] is not None:
-    modular_test = int(configurations["modular_test"])
+io_limit = -1
+if "io_limit" in configurations and configurations["io_limit"] is not None:
+    io_limit = int(configurations["io_limit"])
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
@@ -79,8 +80,11 @@ def move_file(process_id):
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
                 with open(tmpfs_dir+fname, "rb") as ff:
                     chunk, offset = ff.read(1024*1024), 0
-                    if modular_test > 0:
-                        target, factor = modular_test, 8
+                    if offset in io_file_offsets:
+                        offset = int(io_file_offsets[fname])
+
+                    if io_limit > 0:
+                        target, factor = io_limit, 8
                         max_speed = (target * 1024 * 1024)/8
                         second_target, second_data_count = int(max_speed/factor), 0
                         timer100ms = time.time()
@@ -91,7 +95,7 @@ def move_file(process_id):
                         offset += len(chunk)
                         io_file_offsets[fname] = offset
                         # logger.info((fname, offset))
-                        if modular_test > 0:
+                        if io_limit > 0:
                             second_data_count += len(chunk)
                             if second_data_count >= second_target:
                                 second_data_count = 0
@@ -123,11 +127,10 @@ def move_file(process_id):
 
 def garbage_collector(process_id):
     logger.debug(f'Starting Garbage Collector Thread: {process_id}')
-    while transfer_done.value == 0 or cleanup_complete.value < transfer_complete.value:
+    while transfer_done.value == 0:
         try:
             fname = gQueue.get_nowait()
             run(f'rm {tmpfs_dir}{fname}', logger)
-            cleanup_complete.value += 1
             logger.debug(f'Cleanup :: {fname} removed from tempfs')
 
         except Exception as e:
@@ -142,7 +145,7 @@ def receive_file(sock, process_id):
         try:
             client, address = sock.accept()
             logger.debug("{u} connected".format(u=address))
-            used, _ = available_space()
+            used, _ = available_space(tmpfs_dir)
             while used > memory_limit:
                 time.sleep(0.01)
 
@@ -236,7 +239,7 @@ def io_probing(params):
     cc_impact_nl = K**params[0]
     score = thrpt/cc_impact_nl
     score_value = np.round(score * (-1))
-    used_after, free = available_space()
+    used_after, free = available_space(tmpfs_dir)
     logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
     logger.info("I/O Probing -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score_value))
@@ -248,7 +251,7 @@ def io_probing(params):
 
 
 def run_optimizer(probing_func):
-    while start.value == 0:
+    while start.value == 0 and transfer_done.value == 0:
         time.sleep(0.1)
 
     params = [2]
@@ -334,8 +337,24 @@ def report_io_throughput():
             time.sleep(max(0, 1 - (t2-t1)))
 
 
+def handler_stop_signals(signum, frame):
+    try:
+        shutil.rmtree(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+
+    exit(1)
+
+
 if __name__ == '__main__':
-    # run("rm")
+    signal.signal(signal.SIGINT, handler_stop_signals)
+    signal.signal(signal.SIGTERM, handler_stop_signals)
+    try:
+        os.mkdir(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+        exit(1)
+
     num_workers = configurations['thread_limit']
     sock = socket.socket()
     sock.bind((HOST, PORT))
@@ -345,7 +364,6 @@ if __name__ == '__main__':
     while iter<1:
         iter += 1
         logger.info(f">>>>>> Iterations: {iter} >>>>>>")
-
 
         process_status = mp.Array("i", [0 for _ in range(num_workers)])
         transfer_workers = [mp.Process(target=receive_file, args=(sock, i,)) for i in range(num_workers)]
@@ -389,25 +407,30 @@ if __name__ == '__main__':
                 p.join(timeout=0.1)
 
         logger.info(f"Total Files Received: {transfer_complete.value}")
+        end.value = int(time.time())
+        start.value = end.value if start.value == 0 else start.value
+        time_since_begining = np.round(end.value-start.value, 3)
+        if time_since_begining>0:
+            total = np.round(np.sum(transfer_file_offsets.values()) / (1024*1024*1024), 3)
+            thrpt = np.round((total*8*1024)/time_since_begining,2)
+            logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+                total, time_since_begining, thrpt))
+
         while move_complete.value < transfer_complete.value:
             time.sleep(0.01)
 
-        end.value = int(time.time())
         for p in io_workers:
             if p.is_alive():
                 p.terminate()
                 p.join(timeout=0.1)
 
-        time_since_begining = np.round(end.value-start.value, 3)
-        total = np.round(np.sum(transfer_file_offsets.values()) / (1024*1024*1024), 3)
-        thrpt = np.round((total*8*1024)/time_since_begining,2)
-        logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-            total, time_since_begining, thrpt))
-
-        while cleanup_complete.value < transfer_complete.value:
-            time.sleep(0.01)
-
         for p in cleanup_workers:
             if p.is_alive():
                 p.terminate()
                 p.join(timeout=0.1)
+
+    try:
+        shutil.rmtree(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+        exit(1)
