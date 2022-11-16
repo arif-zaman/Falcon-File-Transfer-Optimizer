@@ -1,4 +1,6 @@
 import os
+import shutil
+import signal
 import time
 import uuid
 import socket
@@ -53,22 +55,22 @@ else:
     # mp.log_to_stderr(logger.INFO)
 
 
-emulab_test = False
-if "emulab_test" in configurations and configurations["emulab_test"] is not None:
-    emulab_test = configurations["emulab_test"]
+network_limit = -1
+if "network_limit" in configurations and configurations["network_limit"] is not None:
+    network_limit = configurations["network_limit"]
 
 centralized = False
 if "centralized" in configurations and configurations["centralized"] is not None:
     centralized = configurations["centralized"]
 
-modular_test = 0
-if "modular_test" in configurations and configurations["modular_test"] is not None:
-    modular_test = int(configurations["modular_test"])
+io_limit = -1
+if "io_limit" in configurations and configurations["io_limit"] is not None:
+    io_limit = int(configurations["io_limit"])
 
-executor = ThreadPoolExecutor(max_workers=5)
 if centralized:
     from redis import Redis
     transfer_id = str(uuid.uuid4())
+    executor = ThreadPoolExecutor(max_workers=5)
     ## Redis Config
     hostname = os.environ.get("REDIS_HOSTNAME", "localhost")
     port = os.environ.get("REDIS_PORT", 6379)
@@ -83,9 +85,9 @@ if "file_transfer" in configurations and configurations["file_transfer"] is not 
 
 manager = mp.Manager()
 root_dir = configurations["data_dir"]
-tmpfs_dir = "/dev/shm/data/"
+tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
 probing_time = configurations["probing_sec"]
-file_names = os.listdir(root_dir) * configurations["multiplier"]
+file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
 file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
 file_count = len(file_names)
 network_throughput_logs = manager.list()
@@ -97,7 +99,6 @@ num_transfer_workers = mp.Value("i", 0)
 num_io_workers = mp.Value("i", 0)
 transfer_incomplete = mp.Value("i", file_count)
 copy_incomplete = mp.Value("i", file_count)
-clean_incomplete = mp.Value("i", file_count)
 
 transfer_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
@@ -106,7 +107,7 @@ io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
 rQueue = manager.list()
 tQueue = manager.list()
 gQueue = mp.Queue()
-_, free = available_space()
+_, free = available_space("/dev/shm/")
 memory_limit = free/2
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
@@ -118,15 +119,15 @@ def copy_file(process_id):
         if io_process_status[process_id] != 0:
             logger.debug(f'Starting Copying Thread: {process_id}')
             try:
-                used, _ = available_space()
+                used, _ = available_space(tmpfs_dir)
                 if used < memory_limit:
                     file_id = rQueue.pop()
                     fname = file_names[file_id]
                     fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
                     with open(root_dir+fname, "rb") as ff:
-                        chunk, offset = ff.read(1024*1024), 0
-                        if modular_test > 0:
-                            target, factor = modular_test, 8
+                        chunk, offset = ff.read(1024*1024), int(io_file_offsets[file_id])
+                        if io_limit > 0:
+                            target, factor = io_limit, 8
                             max_speed = (target * 1024 * 1024)/8
                             second_target, second_data_count = int(max_speed/factor), 0
                             timer100ms = time.time()
@@ -137,7 +138,7 @@ def copy_file(process_id):
                             offset += len(chunk)
                             io_file_offsets[file_id] = offset
                             # logger.info((fname, offset))
-                            if modular_test > 0:
+                            if io_limit > 0:
                                 second_data_count += len(chunk)
                                 if second_data_count >= second_target:
                                     second_data_count = 0
@@ -168,12 +169,11 @@ def copy_file(process_id):
 
 def garbage_collector(process_id):
     logger.info(f'Starting Garbage Collector Thread: {process_id}')
-    while clean_incomplete.value > 0:
+    while transfer_incomplete.value > 0:
         try:
             file_id = gQueue.get_nowait()
             fname = file_names[file_id]
             run(f'rm {tmpfs_dir}{fname}', logger)
-            clean_incomplete.value -=  1
             logger.debug(f'Cleanup :: {fname} removed from tempfs!')
         except:
             time.sleep(1)
@@ -195,9 +195,9 @@ def transfer_file(process_id):
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
 
-                if emulab_test:
-                    target, factor = 20, 10
-                    max_speed = (target * 1000 * 1000)/8
+                if network_limit>0:
+                    target, factor = 20, 8
+                    max_speed = (target * 1024 * 1024)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
                 while tQueue and transfer_process_status[process_id] == 1:
@@ -222,24 +222,25 @@ def transfer_file(process_id):
                         timer100ms = time.time()
 
                         while (to_send > 0) and (transfer_process_status[process_id] == 1):
-                            if emulab_test:
+                            if network_limit>0:
                                 block_size = min(chunk_size, second_target-second_data_count)
-                                data_to_send = bytearray(int(block_size))
-                                sent = sock.send(data_to_send)
+                                # data_to_send = bytearray(int(block_size))
+                                # sent = sock.send(data_to_send)
                             else:
                                 block_size = int(min(chunk_size, to_send))
-                                if file_transfer:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
-                                    # data = os.preadv(file, block_size, offset)
-                                else:
-                                    data_to_send = bytearray(block_size)
-                                    sent = sock.send(data_to_send)
+
+                            if file_transfer:
+                                sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                # data = os.preadv(file, block_size, offset)
+                            else:
+                                data_to_send = bytearray(block_size)
+                                sent = sock.send(data_to_send)
 
                             offset += sent
                             to_send -= sent
                             transfer_file_offsets[file_id] = offset
 
-                            if emulab_test:
+                            if network_limit>0:
                                 second_data_count += sent
                                 if second_data_count >= second_target:
                                     second_data_count = 0
@@ -398,12 +399,12 @@ def io_probing(params):
     logger.debug("Active CC - I/O: {0}".format(np.sum(io_process_status)))
     time.sleep(1)
     n_time = time.time() + probing_time - 1.05
-    # used_before, _ = available_space()
+    # used_before, _ = available_space(tmpfs_dir)
     # time.sleep(n_time)
     while (time.time() < n_time) and (transfer_incomplete.value > 0):
         time.sleep(0.1)
 
-    used_after, free = available_space()
+    used_after, free = available_space(tmpfs_dir)
     logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
     thrpt = np.mean(io_throughput_logs[-2:]) if len(network_throughput_logs) > 2 else 0
     K = float(configurations["K"])
@@ -451,7 +452,7 @@ def multi_params_probing(params):
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    # used_before, _ = available_space()
+    # used_before, _ = available_space(tmpfs_dir)
 
     # Sleep
     # time.sleep(n_time)
@@ -463,7 +464,7 @@ def multi_params_probing(params):
     sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
     logger.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
 
-    used_after, free = available_space()
+    used_after, free = available_space(tmpfs_dir)
     # logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
 
     ## Network Score
@@ -577,8 +578,8 @@ def report_network_throughput(start_time):
             previous_time, previous_total = time_since_begining, total_bytes
             network_throughput_logs.append(curr_thrpt)
 
-            # logger.info("Network Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
-            #     time_since_begining, curr_thrpt, thrpt))
+            logger.info("Network Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
+                time_since_begining, curr_thrpt, thrpt))
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
@@ -609,7 +610,24 @@ def report_io_throughput(start_time):
             time.sleep(max(0, 1 - (t2-t1)))
 
 
+def handler_stop_signals(signum, frame):
+    try:
+        shutil.rmtree(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+        exit(1)
+
+
 if __name__ == '__main__':
+    signal.signal(signal.SIGINT, handler_stop_signals)
+    signal.signal(signal.SIGTERM, handler_stop_signals)
+
+    try:
+        os.mkdir(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+        exit(1)
+
     if centralized:
         try:
             r_conn.xadd(register_key, {"transfer_id": transfer_id})
@@ -679,12 +697,15 @@ if __name__ == '__main__':
     for p in transfer_workers:
         if p.is_alive():
             p.terminate()
-            p.join()
-
-    while clean_incomplete.value > 0:
-        time.sleep(0.1)
+            p.join(timeout=0.1)
 
     for p in cleanup_workers:
         if p.is_alive():
             p.terminate()
-            p.join()
+            p.join(timeout=0.1)
+
+    try:
+        shutil.rmtree(tmpfs_dir)
+    except Exception as e:
+        logger.error(e)
+        exit(1)
