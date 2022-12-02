@@ -28,10 +28,11 @@ probing_time = configurations["probing_sec"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 transfer_complete = mp.Value("i", 0)
 move_complete = mp.Value("i", 0)
+cleanup_complete = mp.Value("i", 0)
 transfer_done = mp.Value("i", 0)
 filecount = mp.Value("i", 1)
 _, free = available_space("/dev/shm/")
-memory_limit = free/2
+memory_limit = min(50, free)
 
 io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 transfer_file_offsets = mp.Manager().dict()
@@ -40,7 +41,7 @@ throughput_logs = mp.Manager().list()
 io_throughput_logs = mp.Manager().list()
 
 mQueue = mp.Manager().list()
-gQueue = mp.Queue()
+gQueue = mp.Manager().list()
 start, end = mp.Value("i", 0), mp.Value("i", 0)
 
 direct_io = False
@@ -72,9 +73,9 @@ else:
 
 
 def move_file(process_id):
-    logger.debug(f'Starting File Mover Thread: {process_id}')
-    while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
-        if io_process_status[process_id] != 0:
+    while move_complete.value < filecount.value:
+        if io_process_status[process_id] != 0 and mQueue:
+            logger.debug(f'Starting File Mover Thread: {process_id}')
             try:
                 fname = mQueue.pop()
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
@@ -111,30 +112,40 @@ def move_file(process_id):
                         mQueue.append(fname)
                     else:
                         move_complete.value += 1
-                        gQueue.put(fname)
-                        logger.debug(f'I/O :: {fname} moved to {root_dir}')
+                        gQueue.append(fname)
+                        logger.debug(f'I/O :: {fname}')
 
                 os.close(fd)
-            except Exception as e:
-                # logger.exception(e)
+
+            except IndexError:
                 time.sleep(0.1)
 
-        else:
-            time.sleep(0.01)
+            except Exception as e:
+                logger.exception(e)
+                time.sleep(0.1)
 
-    logger.debug(f'Exiting File Mover Thread: {process_id}')
+            logger.debug(f'Exiting File Mover Thread: {process_id}')
+        else:
+            time.sleep(0.1)
 
 
 def garbage_collector(process_id):
     logger.debug(f'Starting Garbage Collector Thread: {process_id}')
-    while transfer_done.value == 0:
+    while cleanup_complete.value < filecount.value:
         try:
-            fname = gQueue.get_nowait()
-            run(f'rm {tmpfs_dir}{fname}', logger)
-            logger.debug(f'Cleanup :: {fname} removed from tempfs')
+            if gQueue:
+                fname = gQueue.pop()
+                run(f'rm {tmpfs_dir}{fname}', logger)
+                cleanup_complete.value += 1
+                logger.debug(f'Cleanup :: {fname}')
+            else:
+                time.sleep(1)
+
+        except IndexError:
+            time.sleep(0.1)
 
         except Exception as e:
-            # logger.exception(e)
+            logger.exception(e)
             time.sleep(0.1)
 
     logger.debug(f'Exiting Garbage Collector Thread: {process_id}')
@@ -147,7 +158,7 @@ def receive_file(sock, process_id):
             logger.debug("{u} connected".format(u=address))
             used, _ = available_space(tmpfs_dir)
             while used > memory_limit:
-                time.sleep(0.01)
+                time.sleep(0.1)
 
             if start.value == 0:
                 start.value = int(time.time())
@@ -192,7 +203,7 @@ def receive_file(sock, process_id):
                         if to_rcv > 0:
                             chunk = client.recv(min(chunk_size.value, to_rcv))
                         else:
-                            logger.debug(f"Socket :: {filename} received from {address}")
+                            logger.debug(f"Socket :: {filename}")
                             transfer_complete.value += 1
                             io_file_offsets[filename] = 0
                             mQueue.append(filename)
@@ -216,7 +227,7 @@ def receive_file(sock, process_id):
 
 def io_probing(params):
     global io_throughput_logs
-    if transfer_done.value == 1 and move_complete.value == transfer_complete.value:
+    if move_complete.value >= filecount.value:
         return exit_signal
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
@@ -228,7 +239,7 @@ def io_probing(params):
     time.sleep(1)
     n_time = time.time() + probing_time - 1.05
     # time.sleep(n_time)
-    while (time.time() < n_time) and (transfer_done.value == 0):
+    while (time.time() < n_time) and (move_complete.value < filecount.value):
         time.sleep(0.1)
 
     thrpt = np.mean(io_throughput_logs[-2:]) if len(throughput_logs) > 2 else 0
@@ -244,18 +255,17 @@ def io_probing(params):
     logger.info("I/O Probing -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score_value))
 
-    if transfer_done.value == 1 and move_complete.value == transfer_complete.value:
+    if move_complete.value >= filecount.value:
         return exit_signal
     else:
         return score_value
 
 
 def run_optimizer(probing_func):
-    while start.value == 0 and transfer_done.value == 0:
+    while start.value == 0:
         time.sleep(0.1)
 
     params = [2]
-
     if configurations["method"].lower() == "hill_climb":
         logger.info("Running Hill Climb Optimization .... ")
         params = hill_climb(configurations, probing_func, logger)
@@ -276,7 +286,7 @@ def run_optimizer(probing_func):
         logger.info("Running Bayesian Optimization .... ")
         params = base_optimizer(configurations, probing_func, logger)
 
-    while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
+    while move_complete.value < filecount.value:
         probing_func(params)
 
 
@@ -284,11 +294,11 @@ def report_network_throughput():
     global throughput_logs
     previous_total, previous_time = 0, 0
 
-    while start.value <= 0:
+    while start.value == 0:
         time.sleep(0.1)
 
     start_time = start.value
-    while transfer_done.value == 0:
+    while transfer_complete.value < filecount.value:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
@@ -302,8 +312,8 @@ def report_network_throughput():
             previous_time, previous_total = time_since_begining, total_bytes
             throughput_logs.append(curr_thrpt)
 
-            # logger.info("Network Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
-            #     time_since_begining, curr_thrpt, thrpt))
+            logger.info("Network Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
+                time_since_begining, curr_thrpt, thrpt))
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
@@ -313,11 +323,11 @@ def report_io_throughput():
     global io_throughput_logs
     previous_total, previous_time = 0, 0
 
-    while start.value <= 0:
+    while start.value == 0:
         time.sleep(0.1)
 
     start_time = start.value
-    while transfer_done.value == 0 or move_complete.value < transfer_complete.value:
+    while move_complete.value < filecount.value:
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
@@ -330,25 +340,30 @@ def report_io_throughput():
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
 
-            # logger.info("I/O Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
-            #     time_since_begining, curr_thrpt, thrpt))
+            logger.info("I/O Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
+                time_since_begining, curr_thrpt, thrpt))
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
 
-def handler_stop_signals(signum, frame):
+def graceful_exit(signum, frame):
+    logger.debug((signum, frame))
     try:
+        transfer_complete.value = filecount.value
+        move_complete.value = filecount.value
+        cleanup_complete.value = filecount.value
+        time.sleep(0.1)
         shutil.rmtree(tmpfs_dir)
     except Exception as e:
-        logger.error(e)
+        logger.debug(e)
 
     exit(1)
 
 
 if __name__ == '__main__':
-    signal.signal(signal.SIGINT, handler_stop_signals)
-    signal.signal(signal.SIGTERM, handler_stop_signals)
+    signal.signal(signal.SIGINT, graceful_exit)
+    signal.signal(signal.SIGTERM, graceful_exit)
     try:
         os.mkdir(tmpfs_dir)
     except Exception as e:
@@ -381,13 +396,6 @@ if __name__ == '__main__':
             p.daemon = True
             p.start()
 
-
-        # while True:
-        #     try:
-        #         time.sleep(1)
-        #     except:
-        #         break
-
         network_report_thread = Thread(target=report_network_throughput)
         network_report_thread.start()
 
@@ -398,9 +406,8 @@ if __name__ == '__main__':
         io_optimizer_thread.start()
 
         while transfer_complete.value < filecount.value:
-            time.sleep(1)
+            time.sleep(0.1)
 
-        transfer_done.value = 1
         for p in transfer_workers:
             if p.is_alive():
                 p.terminate()
@@ -416,13 +423,16 @@ if __name__ == '__main__':
             logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
                 total, time_since_begining, thrpt))
 
-        while move_complete.value < transfer_complete.value:
-            time.sleep(0.01)
+        while move_complete.value < filecount.value:
+            time.sleep(0.1)
 
         for p in io_workers:
             if p.is_alive():
                 p.terminate()
                 p.join(timeout=0.1)
+
+        while cleanup_complete.value < filecount.value:
+            time.sleep(0.1)
 
         for p in cleanup_workers:
             if p.is_alive():
