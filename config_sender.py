@@ -6,7 +6,7 @@ configurations = {
         "port": 50021
     },
     "data_dir": "/data/arif/",
-    "method": "hill_climb", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -14,7 +14,6 @@ configurations = {
     "random": {
         "num_of_exp": 10
     },
-    "emulab_test": False, # True for per process I/O limit emulation
     "centralized": False, # True for centralized optimization
     "file_transfer": True,
     "B": 10, # severity of the packet loss punishment
@@ -23,10 +22,11 @@ configurations = {
     "probing_sec": 3.1, # probing interval in seconds
     "multiplier": 1, # multiplier for each files, only for testing purpose
     "mp_opt": False,
-    "modular_test": -1, # I/O limit (Mbps) per thread
+    "network_limit": -1, # Network limit (Mbps) per thread
+    "io_limit": -1, # I/O limit (Mbps) per thread
     "fixed_probing": {
         "bsize": 10,
-        "thread": 8
+        "thread": 3
     },
-    "max_cc": 10,
+    "max_cc": 15,
 }

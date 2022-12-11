@@ -1,6 +1,6 @@
 configurations = {
     "receiver": {
-        "host": "134.197.113.71",
+        "host": "10.1.2.3",
         "port": 50021
     },
     "data_dir": "/data/arif1/",
@@ -9,7 +9,7 @@ configurations = {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
     },
-    "max_cc": 12,
+    "max_cc": 15,
     "K": 1.02,
     "probing_sec": 3.1, # probing interval in seconds
     "file_transfer": True,
