@@ -6,7 +6,7 @@ configurations = {
         "port": 50021
     },
     "data_dir": "/data/arif/",
-    "method": "gradient", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
+    "method": "cg", # options: [gradient, bayes, random, brute, probe, cg, lbfgs]
     "bayes": {
         "initial_run": 3,
         "num_of_exp": -1 #-1 for infinite
@@ -21,7 +21,7 @@ configurations = {
     "loglevel": "info",
     "probing_sec": 3.1, # probing interval in seconds
     "multiplier": 1, # multiplier for each files, only for testing purpose
-    "mp_opt": False,
+    "mp_opt": True,
     "network_limit": -1, # Network limit (Mbps) per thread
     "io_limit": -1, # I/O limit (Mbps) per thread
     "fixed_probing": {
