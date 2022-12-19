@@ -300,6 +300,7 @@ def report_network_throughput():
     start_time = start.value
     while transfer_complete.value < filecount.value:
         t1 = time.time()
+        time_since_begining = np.round(t1-start_time, 1)
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(transfer_file_offsets.values())
