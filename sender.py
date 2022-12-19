@@ -85,7 +85,9 @@ rQueue = manager.dict()
 tQueue = manager.dict()
 gQueue = manager.list()
 _, free = available_space("/dev/shm/")
-memory_limit = min(50, free)
+memory_limit = min(100, free/2)
+io_weight = 1
+net_weight = 1
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
@@ -334,26 +336,28 @@ def io_probing(params):
     logger.debug("Active CC - I/O: {0}".format(np.sum(io_process_status)))
     time.sleep(1)
     n_time = time.time() + probing_time - 1.05
-    # used_before, _ = available_space(tmpfs_dir)
+    used_before, _ = available_space(tmpfs_dir)
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
         time.sleep(0.1)
 
-    used_after, free = available_space(tmpfs_dir)
-    logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
+    used_disk, free = available_space(tmpfs_dir)
+    logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
     thrpt = np.mean(io_throughput_logs[-2:]) if len(io_throughput_logs) > 2 else 0
     K = float(configurations["K"])
-
-    storage_cost = 0
-    limit = 30
-    if used_after>limit:
-        storage_cost = (2 ** ((used_after-limit)/max(used_after,1))*100) / 100
-    # score = thrpt
-    # cc_impact_lin = (K-1) * params[0]
-    # score = thrpt * (1-cc_impact_lin)
-    cc_impact_nl = K**params[0]
-    score = (thrpt/cc_impact_nl) - (thrpt*storage_cost)
+    limit = min(15, memory_limit//2)
+    storage_cost = K + max(0,used_disk-limit)/(limit*10)
+    cc_impact_nl = storage_cost**params[0]
+    score = thrpt/cc_impact_nl
     score_value = np.round(score * (-1))
+
+    # storage_cost = 0
+    # if used_disk>limit and used_disk > used_before:
+    #     storage_cost = (used_disk - used_before) / used_disk
+
+    # cc_impact_nl = K**params[0]
+    # score = thrpt/cc_impact_nl - thrpt*storage_cost
+    # score_value = np.round(score * (-1))
 
     logger.info(f"I/O Probing -- Throughput: {np.round(thrpt)}Mbps, Score: {score_value}")
     if not rQueue:
@@ -364,6 +368,7 @@ def io_probing(params):
 
 def multi_params_probing(params):
     global io_throughput_logs, network_throughput_logs, exit_signal
+    global io_weight, net_weight
 
     if not rQueue and tQueue:
         return exit_signal
@@ -374,17 +379,14 @@ def multi_params_probing(params):
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
 
-    if rQueue:
-        for i in range(len(io_process_status)):
-            io_process_status[i] = 1 if i < params[1] else 0
+    for i in range(len(io_process_status)):
+        io_process_status[i] = 1 if (i < params[1] and rQueue) else 0
 
     time.sleep(1)
 
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    # used_before, _ = available_space(tmpfs_dir)
-
     # Sleep
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
@@ -394,9 +396,7 @@ def multi_params_probing(params):
     curr_sc, curr_rc = tcp_stats(RCVR_ADDR, logger)
     sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
     logger.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
-
-    used_after, free = available_space(tmpfs_dir)
-    # logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
+    used_disk, free = available_space(tmpfs_dir)
 
     ## Network Score
     net_thrpt = np.round(np.mean(network_throughput_logs[-2:])) if len(network_throughput_logs) > 2 else 0
@@ -410,17 +410,26 @@ def multi_params_probing(params):
     net_score_value = np.round(net_score * (-1))
 
     ## I/O score
-    io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
-    storage_cost = 0
-    # if used_after>20:
-    #     storage_cost = (2 ** ((used_after-20)/max(used_after,1))*100) / 100
+    if rQueue:
+        io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
+        limit = 15
+        storage_cost = K + max(0,used_disk-limit)/(limit*10)
+        cc_impact_nl = storage_cost**params[1]
+        io_score = io_thrpt/cc_impact_nl
+        io_score_value = np.round(io_score * (-1))
 
-    cc_impact = K**params[1] # Nonlinear
-    io_score = (io_thrpt/cc_impact) - (io_thrpt*storage_cost)
-    io_score_value = np.round(io_score * (-1))
-    score_value = (io_score_value + net_score_value) // 2
+        if io_weight == net_weight:
+            net_weight = (io_thrpt/params[1]) / ((io_thrpt/params[1]) + (net_thrpt/params[0]))
+            io_weight = 1-net_weight
+            logger.info(f"Weight: I/O - {io_weight}, Network - {net_weight}")
+    else:
+        io_score_value = 0
+        io_weight = 0
+        net_weight = 1
 
-    logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
+    score_value = io_weight * io_score_value + net_weight * net_score_value
+
+    logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
     logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps, Score: {score_value}")
 
     if not rQueue and not tQueue:
@@ -491,10 +500,14 @@ def report_network_throughput(start_time):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining >= 0.1:
-            logger.info(f"read:{len(rQueue)}, transfer:{len(tQueue)}, clean: {len(gQueue)}")
+        if time_since_begining>10:
             if sum(network_throughput_logs[-10:]) == 0:
                 logger.info(f"transfer queue: {tQueue}")
+                rQueue.clear()
+                tQueue.clear()
+
+        if time_since_begining >= 0.1:
+            logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
 
             total_bytes = np.sum(transfer_file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
@@ -526,15 +539,13 @@ def report_io_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
-
-            logger.info("I/O Throughput @{0}s: Current: {1}Mbps, Average: {2}Mbps".format(
-                time_since_begining, curr_thrpt, thrpt))
+            logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
 
-def graceful_exit(signum, frame):
+def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
         rQueue.clear()
