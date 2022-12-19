@@ -81,7 +81,7 @@ def move_file(process_id):
                 fd = os.open(root_dir+fname, os.O_CREAT | os.O_RDWR)
                 with open(tmpfs_dir+fname, "rb") as ff:
                     chunk, offset = ff.read(1024*1024), 0
-                    if offset in io_file_offsets:
+                    if fname in io_file_offsets:
                         offset = int(io_file_offsets[fname])
 
                     if io_limit > 0:
@@ -300,7 +300,6 @@ def report_network_throughput():
     start_time = start.value
     while transfer_complete.value < filecount.value:
         t1 = time.time()
-        time_since_begining = np.round(t1-start_time, 1)
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(transfer_file_offsets.values())
@@ -331,6 +330,12 @@ def report_io_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
+        if time_since_begining>10:
+            if sum(io_throughput_logs[-10:]) == 0:
+                transfer_complete.value = filecount.value
+                move_complete.value = filecount.value
+                cleanup_complete.value = filecount.value
+
         if time_since_begining >= 0.1:
             total_bytes = np.sum(io_file_offsets.values())
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
@@ -347,7 +352,7 @@ def report_io_throughput():
             time.sleep(max(0, 1 - (t2-t1)))
 
 
-def graceful_exit(signum, frame):
+def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
         transfer_complete.value = filecount.value
