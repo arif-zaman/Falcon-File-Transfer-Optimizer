@@ -231,7 +231,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
         logger.info("Iteration {0} Starts ...".format(count))
 
     t1 = time.time()
-    current_value = black_box_function([current_cc])
+    current_value = black_box_function(current_cc)
     t2 = time.time()
 
     if verbose:
@@ -249,7 +249,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
     theta = 0
 
     while True:
-        values.append(run_probe(ccs[-1]-1, count+1, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]-1], count+1, verbose, logger, black_box_function))
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
@@ -258,7 +258,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
 
-        values.append(run_probe(ccs[-1]+1, count+2, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]+1], count+2, verbose, logger, black_box_function))
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
@@ -302,7 +302,7 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
 
     while True:
         count += 1
-        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]], count, verbose, logger, black_box_function))
 
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
@@ -347,3 +347,58 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
             ccs.append(next_cc)
 
     return [ccs[-1]]
+
+
+def gradient_multivariate(configurations, black_box_function, logger, verbose=True):
+    max_thread, count = configurations["thread_limit"], 0
+    soft_limit = max_thread
+    io_opt = True
+    values = []
+    ccs = [[1,1]]
+    theta = 1
+
+    while True:
+        count += 1
+        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+
+        if values[-1][0] == exit_signal:
+            logger.info("Optimizer Exits ...")
+            break
+
+        if values[-1][1] == exit_signal:
+            logger.info("I/O Optimizer Exits ...")
+            io_opt = False
+
+        if len(ccs) == 1:
+            ccs.append([2,2])
+
+        else:
+            # Network
+            difference = ccs[-1][0] - ccs[-2][0]
+            prev, curr = values[-2][0], values[-1][0]
+            if difference != 0 and prev !=0:
+                gradient = (curr - prev)/(difference*prev)
+            else:
+                gradient = (curr - prev)/prev if prev != 0 else 1
+
+            update_cc_net = int(np.ceil(ccs[-1][0] * gradient))
+            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), max_thread)
+
+            if io_opt:
+                difference = ccs[-1][1] - ccs[-2][1]
+                prev, curr = values[-2][1], values[-1][1]
+                if difference != 0 and prev !=0:
+                    gradient = (curr - prev)/(difference*prev)
+                else:
+                    gradient = (curr - prev)/prev if prev !=0 else 1
+
+                update_cc_io = int(np.ceil(ccs[-1][1] * gradient))
+                next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), max_thread)
+            else:
+                next_cc_io = 0
+
+            ccs.append([next_cc_net, next_cc_io])
+            logger.debug(f"Gradient: {gradient}")
+            logger.info(f"Previous CC: {ccs[-2]}, Choosen CC: {ccs[-1]}")
+
+    return ccs[-1]
