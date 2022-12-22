@@ -351,15 +351,19 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
 
 def gradient_multivariate(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
-    soft_limit = max_thread
+    soft_limit = max_thread-1
     io_opt = True
     values = []
     ccs = [[1,1]]
-    theta = 1
+    history = {}
 
     while True:
         count += 1
         values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+        history[abs(values[-1][0])] = ccs[-1][0]
+
+        if len(history) >= 10:
+            soft_limit = history[max(history.keys())]
 
         if values[-1][0] == exit_signal:
             logger.info("Optimizer Exits ...")
@@ -382,7 +386,7 @@ def gradient_multivariate(configurations, black_box_function, logger, verbose=Tr
                 gradient = (curr - prev)/prev if prev != 0 else 1
 
             update_cc_net = int(np.ceil(ccs[-1][0] * gradient))
-            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), max_thread)
+            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit+1)
 
             if io_opt:
                 difference = ccs[-1][1] - ccs[-2][1]
