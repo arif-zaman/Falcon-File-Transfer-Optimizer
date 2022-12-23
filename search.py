@@ -1,6 +1,7 @@
 from skopt.space import Integer
 from skopt import Optimizer, dummy_minimize
 from scipy.optimize import minimize
+from collections import OrderedDict
 import numpy as np
 import time
 
@@ -351,19 +352,21 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
 
 def gradient_multivariate(configurations, black_box_function, logger, verbose=True):
     max_thread, count = configurations["thread_limit"], 0
+    cache = OrderedDict()
     soft_limit = max_thread-1
     io_opt = True
     values = []
     ccs = [[1,1]]
-    history = {}
 
     while True:
         count += 1
         values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
-        history[abs(values[-1][0])] = ccs[-1][0]
+        cache[abs(values[-1][0])] = ccs[-1][0]
 
-        if len(history) >= 10:
-            soft_limit = history[max(history.keys())]
+        if len(cache) >= 10:
+            soft_limit = cache[max(cache.keys())]
+            cache.popitem(last=True)
+
 
         if values[-1][0] == exit_signal:
             logger.info("Optimizer Exits ...")
