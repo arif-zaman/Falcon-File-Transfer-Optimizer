@@ -10,87 +10,9 @@ import logging as logger
 import multiprocessing as mp
 from threading import Thread
 from config_sender import configurations
-from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast
+from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space
-
 warnings.filterwarnings("ignore", category=FutureWarning)
-configurations["cpu_count"] = mp.cpu_count()
-configurations["thread_limit"] = configurations["max_cc"]
-
-if configurations["thread_limit"] == -1:
-    configurations["thread_limit"] = configurations["cpu_count"]
-
-log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
-log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
-
-if configurations["loglevel"] == "debug":
-    logger.basicConfig(
-        format=log_FORMAT,
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        level=logger.DEBUG,
-        # filename=log_file,
-        # filemode="w"
-        handlers=[
-            logger.FileHandler(log_file),
-            logger.StreamHandler()
-        ]
-    )
-
-    mp.log_to_stderr(logger.DEBUG)
-else:
-    logger.basicConfig(
-        format=log_FORMAT,
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        level=logger.INFO,
-        # filename=log_file,
-        # filemode="w"
-        handlers=[
-            logger.FileHandler(log_file),
-            logger.StreamHandler()
-        ]
-    )
-
-    # mp.log_to_stderr(logger.INFO)
-
-
-network_limit = -1
-if "network_limit" in configurations and configurations["network_limit"] is not None:
-    network_limit = configurations["network_limit"]
-
-io_limit = -1
-if "io_limit" in configurations and configurations["io_limit"] is not None:
-    io_limit = int(configurations["io_limit"])
-
-file_transfer = True
-if "file_transfer" in configurations and configurations["file_transfer"] is not None:
-    file_transfer = configurations["file_transfer"]
-
-manager = mp.Manager()
-root_dir = configurations["data_dir"]
-tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
-probing_time = configurations["probing_sec"]
-file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
-file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
-file_count = len(file_names)
-network_throughput_logs = manager.list()
-io_throughput_logs = manager.list()
-exit_signal = 10 ** 10
-chunk_size = 1 * 1024 * 1024
-transfer_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-transfer_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-
-rQueue = manager.dict()
-tQueue = manager.dict()
-gQueue = manager.list()
-_, free = available_space("/dev/shm/")
-memory_limit = min(100, free/2)
-io_weight = 1
-net_weight = 1
-
-HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
-RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 
 def copy_file(process_id):
@@ -104,14 +26,17 @@ def copy_file(process_id):
                     if file_transfer:
                         fname = file_names[file_id]
                         fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
+                        block_size = chunk_size
+                        if io_limit > 0:
+                            target, factor = io_limit, 8
+                            max_speed = (target * 1024 * 1024)/8
+                            second_target, second_data_count = int(max_speed/factor), 0
+                            block_size = min(block_size, second_target)
+                            timer100ms = time.time()
+
                         with open(root_dir+fname, "rb") as ff:
                             ff.seek(int(offset))
-                            chunk = ff.read(1024*1024)
-                            if io_limit > 0:
-                                target, factor = io_limit, 8
-                                max_speed = (target * 1024 * 1024)/8
-                                second_target, second_data_count = int(max_speed/factor), 0
-                                timer100ms = time.time()
+                            chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
                             offset_update = time.time()
@@ -133,7 +58,7 @@ def copy_file(process_id):
 
                                         timer100ms = time.time()
 
-                                chunk = ff.read(chunk_size)
+                                chunk = ff.read(block_size)
 
                             io_file_offsets[file_id] = offset
                             if offset < file_sizes[file_id]:
@@ -313,6 +238,7 @@ def network_probing(params):
     score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     score_value = np.round(score * (-1))
 
+    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
     logger.info("Network Probing -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
@@ -345,20 +271,21 @@ def io_probing(params):
     logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
     thrpt = np.mean(io_throughput_logs[-2:]) if len(io_throughput_logs) > 2 else 0
     K = float(configurations["K"])
-    limit = min(15, memory_limit//2)
-    storage_cost = K + max(0,used_disk-limit)/(limit*10)
-    cc_impact_nl = storage_cost**params[0]
-    score = thrpt/cc_impact_nl
-    score_value = np.round(score * (-1))
-
-    # storage_cost = 0
-    # if used_disk>limit and used_disk > used_before:
-    #     storage_cost = (used_disk - used_before) / used_disk
-
-    # cc_impact_nl = K**params[0]
-    # score = thrpt/cc_impact_nl - thrpt*storage_cost
+    limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
+    # storage_cost = K + max(0,used_disk-limit)/(limit*10)
+    # cc_impact_nl = storage_cost**params[0]
+    # score = thrpt/cc_impact_nl
     # score_value = np.round(score * (-1))
 
+    storage_cost = 0
+    if used_disk>limit and used_disk > used_before:
+        storage_cost = (used_disk - used_before) / used_disk
+
+    cc_impact_nl = K**params[0]
+    score = thrpt/cc_impact_nl - thrpt*storage_cost
+    score_value = np.round(score * (-1))
+
+    # logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
     logger.info(f"I/O Probing -- Throughput: {np.round(thrpt)}Mbps, Score: {score_value}")
     if not rQueue:
         return exit_signal
@@ -370,8 +297,8 @@ def multi_params_probing(params):
     global io_throughput_logs, network_throughput_logs, exit_signal
     global io_weight, net_weight
 
-    if not rQueue and tQueue:
-        return exit_signal
+    if not rQueue and not tQueue:
+        return [exit_signal, exit_signal]
 
     params = [1 if x<1 else int(np.round(x)) for x in params]
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
@@ -387,6 +314,7 @@ def multi_params_probing(params):
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
+    used_before, _ = available_space(tmpfs_dir)
     # Sleep
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
@@ -405,6 +333,8 @@ def multi_params_probing(params):
         lr = rc/sc if sc>rc else 0
 
     plr_impact = B*lr
+    # cc_impact_lin = (K-1) * params[0]
+    # net_score = net_thrpt * (1 - plr_impact - cc_impact_lin)
     cc_impact_nl = K**params[0]
     net_score = (net_thrpt/cc_impact_nl) - (net_thrpt * plr_impact)
     net_score_value = np.round(net_score * (-1))
@@ -412,11 +342,19 @@ def multi_params_probing(params):
     ## I/O score
     if rQueue:
         io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
-        limit = 15
+        limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
         storage_cost = K + max(0,used_disk-limit)/(limit*10)
         cc_impact_nl = storage_cost**params[1]
         io_score = io_thrpt/cc_impact_nl
         io_score_value = np.round(io_score * (-1))
+
+        # storage_cost = 0
+        # if used_disk>limit and used_disk > used_before:
+        #     storage_cost = (used_disk - used_before) / used_before
+
+        # cc_impact_nl = K**params[0]
+        # io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
+        # io_score_value = np.round(io_score * (-1))
 
         if io_weight == net_weight:
             net_weight = (io_thrpt/params[1]) / ((io_thrpt/params[1]) + (net_thrpt/params[0]))
@@ -426,16 +364,20 @@ def multi_params_probing(params):
         io_score_value = 0
         io_weight = 0
         net_weight = 1
+        io_thrpt = 0
 
     score_value = io_weight * io_score_value + net_weight * net_score_value
-
     logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
+    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
     logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps, Score: {score_value}")
 
+    if not rQueue:
+        io_score_value = exit_signal
+
     if not rQueue and not tQueue:
-        return exit_signal
-    else:
-        return score_value
+        net_score_value = exit_signal
+
+    return [net_score_value, io_score_value] #score_value
 
 
 def normal_transfer(params):
@@ -461,6 +403,10 @@ def run_optimizer(probing_func):
         if configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
             params = cg_opt(configurations, probing_func)
+
+        elif configurations["method"].lower() == "mgd":
+            logger.info("Running Multivariate Gradient Optimization .... ")
+            params = gradient_multivariate(configurations, probing_func, logger)
         else:
             logger.info("Running Bayesian Optimization .... ")
             params = base_optimizer(configurations, probing_func, logger)
@@ -507,8 +453,6 @@ def report_network_throughput(start_time):
                 tQueue.clear()
 
         if time_since_begining >= 0.1:
-            logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
-
             total_bytes = np.sum(transfer_file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
 
@@ -517,7 +461,7 @@ def report_network_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             network_throughput_logs.append(curr_thrpt)
-            logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
+            # logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
@@ -539,7 +483,7 @@ def report_io_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
-            logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
+            # logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
@@ -565,21 +509,98 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
 
+    net_cc = configurations["max_cc"]["network"]
+    configurations["network_thread_limit"] = net_cc if net_cc>0 else mp.cpu_count()
+
+    io_cc = configurations["max_cc"]["io"]
+    configurations["io_thread_limit"] = io_cc if io_cc>0 else mp.cpu_count()
+
+    log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
+    log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+
+    if configurations["loglevel"] == "debug":
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.DEBUG,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
+
+        mp.log_to_stderr(logger.DEBUG)
+    else:
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.INFO,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
+
+        # mp.log_to_stderr(logger.INFO)
+
+    network_limit = -1
+    if "network_limit" in configurations and configurations["network_limit"] is not None:
+        network_limit = configurations["network_limit"]
+
+    io_limit = -1
+    if "io_limit" in configurations and configurations["io_limit"] is not None:
+        io_limit = int(configurations["io_limit"])
+
+    file_transfer = True
+    if "file_transfer" in configurations and configurations["file_transfer"] is not None:
+        file_transfer = configurations["file_transfer"]
+
+    manager = mp.Manager()
+    root_dir = configurations["data_dir"]
+    tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
+    probing_time = configurations["probing_sec"]
+    file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
+    file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
+    file_count = len(file_names)
+    network_throughput_logs = manager.list()
+    io_throughput_logs = manager.list()
+    exit_signal = 10 ** 10
+    chunk_size = 1 * 1024 * 1024
+    transfer_process_status = mp.Array("i", [0 for i in range(configurations["network_thread_limit"])])
+    io_process_status = mp.Array("i", [0 for i in range(configurations["io_thread_limit"])])
+    transfer_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+    io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+
+    io_weight, net_weight = 1, 1
+
+    HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+    RCVR_ADDR = str(HOST) + ":" + str(PORT)
+
     try:
         os.mkdir(tmpfs_dir)
     except Exception as e:
         logger.error(e)
         exit(1)
 
+    _, free = available_space(tmpfs_dir)
+    memory_limit = min(configurations["memory_use"]["maximum"], free/2)
+
+    rQueue = manager.dict()
+    tQueue = manager.dict()
+    gQueue = manager.list()
     for i in range(file_count):
         rQueue[i] = 0
 
-    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(configurations["thread_limit"])]
+    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(configurations["io_thread_limit"])]
     for p in copy_workers:
         p.daemon = True
         p.start()
 
-    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(configurations["thread_limit"])]
+    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(configurations["network_thread_limit"])]
     for p in transfer_workers:
         p.daemon = True
         p.start()

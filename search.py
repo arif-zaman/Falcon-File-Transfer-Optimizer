@@ -1,6 +1,7 @@
 from skopt.space import Integer
 from skopt import Optimizer, dummy_minimize
 from scipy.optimize import minimize
+from collections import OrderedDict
 import numpy as np
 import time
 
@@ -8,7 +9,7 @@ exit_signal = 10 ** 10
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 20, 0
-    max_thread = configurations["thread_limit"]
+    max_thread = configurations["network_thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]
     mp_opt = configurations["mp_opt"]
 
@@ -66,8 +67,8 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
                 max_thread = max(cc, 2)
                 reset = True
 
-            if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
-                max_thread = min(cc+5, configurations["thread_limit"])
+            if (last_value < 0) and (cc == max_thread) and (cc < configurations["network_thread_limit"]):
+                max_thread = min(cc+5, configurations["network_thread_limit"])
                 reset = True
 
             if reset:
@@ -88,7 +89,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
 
 
 def hill_climb(configurations, black_box_function, logger, verbose=True):
-    max_thread = configurations["thread_limit"]
+    max_thread = configurations["network_thread_limit"]
     params = [1]
     phase, count = 1, 0
     current_value, previous_value = 0, 0
@@ -161,7 +162,7 @@ def cg_opt(configurations, black_box_function):
 
 
 def lbfgs_opt(configurations, black_box_function):
-    max_thread = configurations["thread_limit"]
+    max_thread = configurations["network_thread_limit"]
     mp_opt = configurations["mp_opt"]
 
     if mp_opt:
@@ -194,7 +195,7 @@ def lbfgs_opt(configurations, black_box_function):
 
 def dummy(configurations, black_box_function, logger, verbose=False):
     search_space  = [
-        Integer(1, configurations["thread_limit"])
+        Integer(1, configurations["network_thread_limit"])
     ]
 
     optimizer = dummy_minimize(
@@ -212,7 +213,7 @@ def dummy(configurations, black_box_function, logger, verbose=False):
 
 def brute_force(configurations, black_box_function, logger, verbose=False):
     score = []
-    max_thread = configurations["thread_limit"]
+    max_thread = configurations["network_thread_limit"]
 
     for i in range(1, max_thread+1):
         score.append(black_box_function([i]))
@@ -231,7 +232,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
         logger.info("Iteration {0} Starts ...".format(count))
 
     t1 = time.time()
-    current_value = black_box_function([current_cc])
+    current_value = black_box_function(current_cc)
     t2 = time.time()
 
     if verbose:
@@ -242,14 +243,14 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
 
 
 def gradient_opt(configurations, black_box_function, logger, verbose=True):
-    max_thread, count = configurations["thread_limit"], 0
+    max_thread, count = configurations["network_thread_limit"], 0
     soft_limit, least_cost = max_thread, 0
     values = []
     ccs = [2]
     theta = 0
 
     while True:
-        values.append(run_probe(ccs[-1]-1, count+1, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]-1], count+1, verbose, logger, black_box_function))
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
@@ -258,7 +259,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
 
-        values.append(run_probe(ccs[-1]+1, count+2, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]+1], count+2, verbose, logger, black_box_function))
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
             break
@@ -294,7 +295,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
 
 
 def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
-    max_thread, count = configurations["thread_limit"], 0
+    max_thread, count = configurations["network_thread_limit"], 0
     soft_limit, least_cost = max_thread, 0
     values = []
     ccs = [1]
@@ -302,7 +303,7 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
 
     while True:
         count += 1
-        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+        values.append(run_probe([ccs[-1]], count, verbose, logger, black_box_function))
 
         if values[-1] == exit_signal:
             logger.info("Optimizer Exits ...")
@@ -347,3 +348,72 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
             ccs.append(next_cc)
 
     return [ccs[-1]]
+
+
+def gradient_multivariate(configurations, black_box_function, logger, verbose=True):
+    count = 0
+    cache_net = OrderedDict()
+    cache_io = OrderedDict()
+    soft_limit_net = configurations["network_thread_limit"]-1
+    soft_limit_io = configurations["io_thread_limit"]-1
+    io_opt = True
+    values = []
+    ccs = [[1,1]]
+
+    while True:
+        count += 1
+        values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
+        cache_net[abs(values[-1][0])] = ccs[-1][0]
+        cache_io[abs(values[-1][0])] = ccs[-1][1]
+
+
+        if len(cache_net) >= 10:
+            soft_limit_net = cache_net[max(cache_net.keys())]
+            cache_net.popitem(last=True)
+
+        if len(cache_io) >= 10:
+            soft_limit_io = cache_io[max(cache_io.keys())]
+            cache_io.popitem(last=True)
+
+
+        if values[-1][0] == exit_signal:
+            logger.info("Optimizer Exits ...")
+            break
+
+        if values[-1][1] == exit_signal:
+            logger.info("I/O Optimizer Exits ...")
+            io_opt = False
+
+        if len(ccs) == 1:
+            ccs.append([2,2])
+
+        else:
+            # Network
+            difference = ccs[-1][0] - ccs[-2][0]
+            prev, curr = values[-2][0], values[-1][0]
+            if difference != 0 and prev !=0:
+                gradient = (curr - prev)/(difference*prev)
+            else:
+                gradient = (curr - prev)/prev if prev != 0 else 1
+
+            update_cc_net = int(np.ceil(ccs[-1][0] * gradient))
+            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net+1)
+
+            if io_opt:
+                difference = ccs[-1][1] - ccs[-2][1]
+                prev, curr = values[-2][1], values[-1][1]
+                if difference != 0 and prev !=0:
+                    gradient = (curr - prev)/(difference*prev)
+                else:
+                    gradient = (curr - prev)/prev if prev !=0 else 1
+
+                update_cc_io = int(np.ceil(ccs[-1][1] * gradient))
+                next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io+1)
+            else:
+                next_cc_io = 0
+
+            ccs.append([next_cc_net, next_cc_io])
+            logger.debug(f"Gradient: {gradient}")
+            logger.info(f"Previous CC: {ccs[-2]}, Choosen CC: {ccs[-1]}")
+
+    return ccs[-1]
