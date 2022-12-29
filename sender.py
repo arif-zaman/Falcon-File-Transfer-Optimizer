@@ -12,85 +12,7 @@ from threading import Thread
 from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
 from utils import tcp_stats, run, available_space
-
 warnings.filterwarnings("ignore", category=FutureWarning)
-configurations["cpu_count"] = mp.cpu_count()
-configurations["thread_limit"] = configurations["max_cc"]
-
-if configurations["thread_limit"] == -1:
-    configurations["thread_limit"] = configurations["cpu_count"]
-
-log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
-log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
-
-if configurations["loglevel"] == "debug":
-    logger.basicConfig(
-        format=log_FORMAT,
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        level=logger.DEBUG,
-        # filename=log_file,
-        # filemode="w"
-        handlers=[
-            logger.FileHandler(log_file),
-            logger.StreamHandler()
-        ]
-    )
-
-    mp.log_to_stderr(logger.DEBUG)
-else:
-    logger.basicConfig(
-        format=log_FORMAT,
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        level=logger.INFO,
-        # filename=log_file,
-        # filemode="w"
-        handlers=[
-            logger.FileHandler(log_file),
-            logger.StreamHandler()
-        ]
-    )
-
-    # mp.log_to_stderr(logger.INFO)
-
-
-network_limit = -1
-if "network_limit" in configurations and configurations["network_limit"] is not None:
-    network_limit = configurations["network_limit"]
-
-io_limit = -1
-if "io_limit" in configurations and configurations["io_limit"] is not None:
-    io_limit = int(configurations["io_limit"])
-
-file_transfer = True
-if "file_transfer" in configurations and configurations["file_transfer"] is not None:
-    file_transfer = configurations["file_transfer"]
-
-manager = mp.Manager()
-root_dir = configurations["data_dir"]
-tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
-probing_time = configurations["probing_sec"]
-file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
-file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
-file_count = len(file_names)
-network_throughput_logs = manager.list()
-io_throughput_logs = manager.list()
-exit_signal = 10 ** 10
-chunk_size = 1 * 1024 * 1024
-transfer_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-transfer_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-
-rQueue = manager.dict()
-tQueue = manager.dict()
-gQueue = manager.list()
-_, free = available_space("/dev/shm/")
-memory_limit = min(100, free/2)
-io_weight = 1
-net_weight = 1
-
-HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
-RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 
 def copy_file(process_id):
@@ -104,14 +26,17 @@ def copy_file(process_id):
                     if file_transfer:
                         fname = file_names[file_id]
                         fd = os.open(tmpfs_dir+fname, os.O_CREAT | os.O_RDWR)
+                        block_size = chunk_size
+                        if io_limit > 0:
+                            target, factor = io_limit, 8
+                            max_speed = (target * 1024 * 1024)/8
+                            second_target, second_data_count = int(max_speed/factor), 0
+                            block_size = min(block_size, second_target)
+                            timer100ms = time.time()
+
                         with open(root_dir+fname, "rb") as ff:
                             ff.seek(int(offset))
-                            chunk = ff.read(1024*1024)
-                            if io_limit > 0:
-                                target, factor = io_limit, 8
-                                max_speed = (target * 1024 * 1024)/8
-                                second_target, second_data_count = int(max_speed/factor), 0
-                                timer100ms = time.time()
+                            chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
                             offset_update = time.time()
@@ -133,7 +58,7 @@ def copy_file(process_id):
 
                                         timer100ms = time.time()
 
-                                chunk = ff.read(chunk_size)
+                                chunk = ff.read(block_size)
 
                             io_file_offsets[file_id] = offset
                             if offset < file_sizes[file_id]:
@@ -346,7 +271,7 @@ def io_probing(params):
     logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
     thrpt = np.mean(io_throughput_logs[-2:]) if len(io_throughput_logs) > 2 else 0
     K = float(configurations["K"])
-    limit = min(15, memory_limit//2)
+    limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
     # storage_cost = K + max(0,used_disk-limit)/(limit*10)
     # cc_impact_nl = storage_cost**params[0]
     # score = thrpt/cc_impact_nl
@@ -417,7 +342,7 @@ def multi_params_probing(params):
     ## I/O score
     if rQueue:
         io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
-        limit = 15
+        limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
         storage_cost = K + max(0,used_disk-limit)/(limit*10)
         cc_impact_nl = storage_cost**params[1]
         io_score = io_thrpt/cc_impact_nl
@@ -584,21 +509,98 @@ if __name__ == '__main__':
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
 
+    net_cc = configurations["max_cc"]["network"]
+    configurations["network_thread_limit"] = net_cc if net_cc>0 else mp.cpu_count()
+
+    io_cc = configurations["max_cc"]["io"]
+    configurations["io_thread_limit"] = io_cc if io_cc>0 else mp.cpu_count()
+
+    log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
+    log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+
+    if configurations["loglevel"] == "debug":
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.DEBUG,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
+
+        mp.log_to_stderr(logger.DEBUG)
+    else:
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.INFO,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
+
+        # mp.log_to_stderr(logger.INFO)
+
+    network_limit = -1
+    if "network_limit" in configurations and configurations["network_limit"] is not None:
+        network_limit = configurations["network_limit"]
+
+    io_limit = -1
+    if "io_limit" in configurations and configurations["io_limit"] is not None:
+        io_limit = int(configurations["io_limit"])
+
+    file_transfer = True
+    if "file_transfer" in configurations and configurations["file_transfer"] is not None:
+        file_transfer = configurations["file_transfer"]
+
+    manager = mp.Manager()
+    root_dir = configurations["data_dir"]
+    tmpfs_dir = f"/dev/shm/data{os.getpid()}/"
+    probing_time = configurations["probing_sec"]
+    file_names = os.listdir(root_dir)[:] * configurations["multiplier"]
+    file_sizes = [os.path.getsize(root_dir+filename) for filename in file_names]
+    file_count = len(file_names)
+    network_throughput_logs = manager.list()
+    io_throughput_logs = manager.list()
+    exit_signal = 10 ** 10
+    chunk_size = 1 * 1024 * 1024
+    transfer_process_status = mp.Array("i", [0 for i in range(configurations["network_thread_limit"])])
+    io_process_status = mp.Array("i", [0 for i in range(configurations["io_thread_limit"])])
+    transfer_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+    io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+
+    io_weight, net_weight = 1, 1
+
+    HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+    RCVR_ADDR = str(HOST) + ":" + str(PORT)
+
     try:
         os.mkdir(tmpfs_dir)
     except Exception as e:
         logger.error(e)
         exit(1)
 
+    _, free = available_space(tmpfs_dir)
+    memory_limit = min(configurations["memory_use"]["maximum"], free/2)
+
+    rQueue = manager.dict()
+    tQueue = manager.dict()
+    gQueue = manager.list()
     for i in range(file_count):
         rQueue[i] = 0
 
-    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(configurations["thread_limit"])]
+    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(configurations["io_thread_limit"])]
     for p in copy_workers:
         p.daemon = True
         p.start()
 
-    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(configurations["thread_limit"])]
+    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(configurations["network_thread_limit"])]
     for p in transfer_workers:
         p.daemon = True
         p.start()
