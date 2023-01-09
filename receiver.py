@@ -217,7 +217,7 @@ def run_optimizer(probing_func):
 
     elif configurations["method"].lower() == "gradient":
         logger.info("Running Gradient Optimization .... ")
-        params = gradient_opt_fast(configurations, probing_func, logger)
+        params = gradient_opt_fast(configurations["thread_limit"], probing_func, logger)
 
     elif configurations["method"].lower() == "cg":
         logger.info("Running Conjugate Optimization .... ")
@@ -244,10 +244,13 @@ def report_network_throughput():
 
     start_time = start.value
     while transfer_done.value == 0:
-        if transfer_done.value == 1:
-            logger.info("Hello World!")
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
+
+        if time_since_begining>10:
+            if sum(throughput_logs[-3:]) == 0:
+                transfer_done.value  = 1
+                break
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(transfer_file_offsets.values())
@@ -278,14 +281,14 @@ def report_io_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>10:
-            if sum(io_throughput_logs[-5:]) == 0:
-                transfer_done.value  = 0
-                time.sleep(1)
-                move_complete.value = transfer_complete.value
-                cleanup_complete.value = transfer_complete.value
-                time.sleep(1)
-                break
+        # if time_since_begining>10:
+        #     if sum(io_throughput_logs[-5:]) == 0:
+        #         transfer_done.value  = 1
+        #         time.sleep(1)
+        #         move_complete.value = transfer_complete.value
+        #         cleanup_complete.value = transfer_complete.value
+        #         time.sleep(1)
+        #         break
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(io_file_offsets.values())
@@ -412,12 +415,13 @@ if __name__ == '__main__':
     io_optimizer_thread = Thread(target=run_optimizer, args=(io_probing,))
     io_optimizer_thread.start()
 
-    transfer_process_status[0] = 1
-    while sum(transfer_process_status)>0:
+    # transfer_process_status[0] = 1
+    # while sum(transfer_process_status)>0:
+    while transfer_done.value == 0:
         time.sleep(0.1)
 
     logger.info(f"Transfer Tasks Completed!")
-    transfer_done.value = 1
+    # transfer_done.value = 1
     time.sleep(1)
 
     for p in transfer_workers:

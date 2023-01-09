@@ -418,7 +418,7 @@ def run_optimizer(probing_func):
 
         elif configurations["method"].lower() == "gradient":
             logger.info("Running Gradient Optimization .... ")
-            params = gradient_opt_fast(configurations, probing_func, logger)
+            params = gradient_opt_fast(configurations["thread_limit"], probing_func, logger)
 
         elif configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")

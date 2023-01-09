@@ -161,38 +161,6 @@ def cg_opt(configurations, black_box_function):
     return optimizer.x
 
 
-def lbfgs_opt(configurations, black_box_function):
-    max_thread = configurations["network_thread_limit"]
-    mp_opt = configurations["mp_opt"]
-
-    if mp_opt:
-        starting_params = [1, 1, 1, 10]
-        search_space  = [
-            (1, max_thread), # Concurrency
-            (1, 10), # Parallesism
-            (1, 10), # Pipeline
-            (5, 20), # Chunk/Block Size: power of 2
-            ]
-    else:
-        starting_params = [1]
-        search_space  = [
-            (1, max_thread), # Concurrency
-            ]
-
-    optimizer = minimize(
-        method="L-BFGS-B",
-        fun=black_box_function,
-        x0=starting_params,
-        bounds=search_space,
-        # approx_grad=True,
-        options= {
-            "eps":1, # step size
-        },
-    )
-
-    return optimizer.x
-
-
 def dummy(configurations, black_box_function, logger, verbose=False):
     search_space  = [
         Integer(1, configurations["network_thread_limit"])
@@ -294,8 +262,8 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
     return [ccs[-1]]
 
 
-def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
-    max_thread, count = configurations["network_thread_limit"], 0
+def gradient_opt_fast(cc_limit, black_box_function, logger, verbose=True):
+    max_thread, count = cc_limit, 0
     soft_limit, least_cost = max_thread, 0
     values = []
     ccs = [1]
