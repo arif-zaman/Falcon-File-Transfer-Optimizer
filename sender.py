@@ -51,8 +51,6 @@ else:
         ]
     )
 
-    mp.log_to_stderr(log.INFO)
-
 
 emulab_test = False
 if "emulab_test" in configurations and configurations["emulab_test"] is not None:
@@ -171,9 +169,8 @@ def worker(process_id, q):
                                 sent = sock.send(data_to_send)
                             else:
                                 block_size = min(chunk_size, to_send)
-
                                 if file_transfer:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=block_size)
+                                    sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                                     # data = os.preadv(file, block_size, offset)
                                 else:
                                     data_to_send = bytearray(int(block_size))
@@ -204,7 +201,7 @@ def worker(process_id, q):
 
             except Exception as e:
                 process_status[process_id] = 0
-                log.error("Process: {0}, Error: {1}".format(process_id, str(e)))
+                log.debug("Process: {0}, Error: {1}".format(process_id, str(e)))
 
             log.debug("End Process :: {0}".format(process_id))
 
@@ -392,6 +389,9 @@ def report_throughput(start_time):
         time_since_begining = np.round(t1-start_time, 1)
 
         if time_since_begining >= 0.1:
+            if time_since_begining >= 3 and sum(throughput_logs[-3:]) == 0:
+                file_incomplete.value = 0
+
             total_bytes = np.sum(file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
 
