@@ -5,6 +5,7 @@ import mmap
 import time
 import socket
 import warnings
+import datetime
 import logging as logger
 import numpy as np
 import multiprocessing as mp
@@ -40,7 +41,7 @@ def move_file(process_id):
                         os.write(fd, chunk)
                         offset += len(chunk)
                         io_file_offsets[fname] = offset
-                        # logger.info((fname, offset))
+                        # logger.debug((fname, offset))
                         if io_limit > 0:
                             second_data_count += len(chunk)
                             if second_data_count >= second_target:
@@ -166,7 +167,7 @@ def receive_file(sock, process_id):
             client.close()
             transfer_process_status[process_id] = 0
         except Exception as e:
-            logger.error(str(e))
+            logger.debug(str(e))
             # raise e
 
 
@@ -281,14 +282,11 @@ def report_io_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        # if time_since_begining>10:
-        #     if sum(io_throughput_logs[-5:]) == 0:
-        #         transfer_done.value  = 1
-        #         time.sleep(1)
-        #         move_complete.value = transfer_complete.value
-        #         cleanup_complete.value = transfer_complete.value
-        #         time.sleep(1)
-        #         break
+        if time_since_begining>10:
+            if sum(io_throughput_logs[-5:]) == 0:
+                transfer_done.value  = 1
+                move_complete.value = transfer_complete.value
+                break
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(io_file_offsets.values())
@@ -309,12 +307,12 @@ def report_io_throughput():
 def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
-        transfer_done.value  = 0
+        transfer_done.value  = 1
         time.sleep(1)
         move_complete.value = transfer_complete.value
-        cleanup_complete.value = transfer_complete.value
+        cleanup_complete.value = move_complete.value
         time.sleep(1)
-        shutil.rmtree(tmpfs_dir)
+        shutil.rmtree(tmpfs_dir, ignore_errors=True)
     except Exception as e:
         logger.debug(e)
 
@@ -324,6 +322,36 @@ def graceful_exit(signum=None, frame=None):
 if __name__ == '__main__':
     signal.signal(signal.SIGINT, graceful_exit)
     signal.signal(signal.SIGTERM, graceful_exit)
+
+    log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
+    log_file = f'logs/receiver.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'
+
+    if configurations["loglevel"] == "debug":
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.DEBUG,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
+
+        mp.log_to_stderr(logger.DEBUG)
+    else:
+        logger.basicConfig(
+            format=log_FORMAT,
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logger.INFO,
+            # filename=log_file,
+            # filemode="w"
+            handlers=[
+                logger.FileHandler(log_file),
+                logger.StreamHandler()
+            ]
+        )
 
     configurations["cpu_count"] = mp.cpu_count()
     configurations["thread_limit"] = configurations["max_cc"]
@@ -360,27 +388,10 @@ if __name__ == '__main__':
     if "io_limit" in configurations and configurations["io_limit"] is not None:
         io_limit = int(configurations["io_limit"])
 
-    log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
-    if configurations["loglevel"] == "debug":
-        logger.basicConfig(
-            format=log_FORMAT,
-            datefmt='%m/%d/%Y %I:%M:%S %p',
-            level=logger.DEBUG,
-        )
-
-        mp.log_to_stderr(logger.DEBUG)
-    else:
-        logger.basicConfig(
-            format=log_FORMAT,
-            datefmt='%m/%d/%Y %I:%M:%S %p',
-            level=logger.INFO
-        )
-
-        # mp.log_to_stderr(logger.INFO)
     try:
         os.mkdir(tmpfs_dir)
     except Exception as e:
-        logger.error(e)
+        logger.debug(e)
         exit(1)
 
     _, free = available_space(tmpfs_dir)
@@ -432,6 +443,7 @@ if __name__ == '__main__':
     while move_complete.value < transfer_complete.value:
         time.sleep(0.1)
 
+    cleanup_complete.value = move_complete.value
     time.sleep(1)
     for p in io_workers:
         if p.is_alive():
@@ -443,10 +455,6 @@ if __name__ == '__main__':
             p.terminate()
             p.join(timeout=0.1)
 
-    try:
-        shutil.rmtree(tmpfs_dir)
-    except Exception as e:
-        logger.error(e)
-
-    logger.info(f"Transfer Completed!")
+    shutil.rmtree(tmpfs_dir, ignore_errors=True)
+    logger.debug(f"Transfer Completed!")
     exit(1)
