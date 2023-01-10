@@ -79,7 +79,7 @@ def copy_file(process_id):
                 time.sleep(0.1)
 
             except Exception as e:
-                logger.exception(e)
+                logger.debug(str(e))
                 time.sleep(0.1)
 
             logger.debug(f'Exiting Copying Thread: {process_id}')
@@ -100,7 +100,7 @@ def garbage_collector(process_id):
             time.sleep(1)
 
         except Exception as e:
-            logger.exception(e)
+            logger.debug(str(e))
             time.sleep(0.1)
 
     logger.debug(f'Exiting Garbage Collector Thread: {process_id}')
@@ -109,91 +109,88 @@ def garbage_collector(process_id):
 def transfer_file(process_id):
     while rQueue or tQueue:
         if transfer_process_status[process_id] == 1:
-            logger.debug(f'Starting TCP Socket Thread: {process_id}')
             try:
-                file_id, offset = tQueue.popitem()
-
-            except KeyError:
-                time.sleep(0.1)
-                continue
-
-            except Exception as e:
-                logger.exception(e)
-                time.sleep(0.1)
-                continue
-
-            try:
+                logger.debug(f'Starting TCP Socket Thread: {process_id}')
                 sock = socket.socket()
                 sock.settimeout(3)
                 sock.connect((HOST, PORT))
-
-                if network_limit>0:
-                    target, factor = network_limit, 8
-                    max_speed = (target * 1024 * 1024)/8
-                    second_target, second_data_count = int(max_speed/factor), 0
-
-                to_send = io_file_offsets[file_id] - offset
-                if (to_send > 0) and (transfer_process_status[process_id] == 1):
-                    filename = tmpfs_dir + file_names[file_id]
-                    if file_transfer:
-                        file = open(filename, "rb")
-                    msg = f"{file_count},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
-                    sock.send(msg.encode())
-                    logger.debug(f"starting {process_id}, {filename}, {offset}, {len(tQueue)}")
-
-                    timer100ms = time.time()
-                    offset_update = time.time()
-                    while (to_send > 0) and (transfer_process_status[process_id] == 1):
-                        if network_limit>0:
-                            block_size = min(chunk_size, second_target-second_data_count, to_send)
-                        else:
-                            block_size = min(chunk_size, to_send)
-
-                        if file_transfer:
-                                sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
-                        else:
-                            data_to_send = bytearray(int(block_size))
-                            sent = sock.send(data_to_send)
-
-                        offset += sent
-                        to_send -= sent
-
-                        ## Update every 100 milliseconds
-                        if time.time() - offset_update >= 0.1:
-                            transfer_file_offsets[file_id] = offset
-                            offset_update = time.time()
-
-                        if network_limit>0:
-                            second_data_count += sent
-                            if second_data_count >= second_target:
-                                second_data_count = 0
-                                while timer100ms + (1/factor) > time.time():
-                                    pass
-
-                                timer100ms = time.time()
-
-                    if file_transfer:
-                        file.close()
-
-                    transfer_file_offsets[file_id] = offset
-                    if offset < io_file_offsets[file_id] or file_id in rQueue:
-                        logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
-                        tQueue[file_id] = offset
-                    else:
-                        logger.debug(f'Transfer :: {file_id}!')
-                        if file_transfer:
-                            gQueue.append(file_id)
-
-                sock.close()
             except socket.timeout as e:
                 # logger.exception(e)
                 continue
 
-            except Exception as e:
-                transfer_process_status[process_id] = 0
-                logger.error("Process: {0}, Error: {1}".format(process_id, str(e)))
+            while transfer_process_status[process_id] == 1:
+                try:
+                    file_id, offset = tQueue.popitem()
+
+                    if network_limit>0:
+                        target, factor = network_limit, 8
+                        max_speed = (target * 1024 * 1024)/8
+                        second_target, second_data_count = int(max_speed/factor), 0
+
+                    to_send = io_file_offsets[file_id] - offset
+                    if (to_send > 0) and (transfer_process_status[process_id] == 1):
+                        filename = tmpfs_dir + file_names[file_id]
+                        if file_transfer:
+                            file = open(filename, "rb")
+
+                        msg = f"{file_count},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
+                        sock.send(msg.encode())
+                        logger.debug(f"starting {process_id}, {filename}, {offset}, {len(tQueue)}")
+
+                        timer100ms = offset_update = time.time()
+                        while (to_send > 0) and (transfer_process_status[process_id] == 1):
+                            if network_limit>0:
+                                block_size = min(chunk_size, second_target-second_data_count, to_send)
+                            else:
+                                block_size = min(chunk_size, to_send)
+
+                            if file_transfer:
+                                    sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
+                            else:
+                                data_to_send = bytearray(int(block_size))
+                                sent = sock.send(data_to_send)
+
+                            offset += sent
+                            to_send -= sent
+
+                            ## Update every 100 milliseconds
+                            if time.time() - offset_update >= 0.1:
+                                transfer_file_offsets[file_id] = offset
+                                offset_update = time.time()
+
+                            if network_limit>0:
+                                second_data_count += sent
+                                if second_data_count >= second_target:
+                                    second_data_count = 0
+                                    while timer100ms + (1/factor) > time.time():
+                                        pass
+
+                                    timer100ms = time.time()
+
+                        if file_transfer:
+                            file.close()
+
+                        transfer_file_offsets[file_id] = offset
+                        if offset < io_file_offsets[file_id] or file_id in rQueue:
+                            logger.debug(f"Transfer - file: {file_id}, offset: {offset}, size: {file_sizes[file_id]}")
+                            tQueue[file_id] = offset
+                        else:
+                            logger.debug(f'Transfer :: {file_id}!')
+                            if file_transfer:
+                                gQueue.append(file_id)
+
+                    else:
+                        tQueue[file_id] = offset
+                except KeyError:
+                    time.sleep(0.1)
+                    continue
+
+                except Exception as e:
+                    transfer_process_status[process_id] = 0
+                    logger.debug("Process: {0}, Error: {1}".format(process_id, str(e)))
 
             logger.debug(f'Exiting TCP Socket Thread: {process_id}')
+            sock.close()
 
     transfer_process_status[process_id] = 0
 
@@ -295,7 +292,7 @@ def io_probing(params):
 
 def multi_params_probing(params):
     global io_throughput_logs, network_throughput_logs, exit_signal
-    global io_weight, net_weight
+    # global io_weight, net_weight
 
     if not rQueue and not tQueue:
         return [exit_signal, exit_signal]
@@ -345,31 +342,30 @@ def multi_params_probing(params):
         limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
         storage_cost = K + max(0,used_disk-limit)/(limit*10)
         cc_impact_nl = storage_cost**params[1]
-        io_score = io_thrpt/cc_impact_nl
-        io_score_value = np.round(io_score * (-1))
-
-        # storage_cost = 0
-        # if used_disk>limit and used_disk > used_before:
-        #     storage_cost = (used_disk - used_before) / used_before
-
-        # cc_impact_nl = K**params[0]
-        # io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
+        # io_score = io_thrpt/cc_impact_nl
         # io_score_value = np.round(io_score * (-1))
 
-        if io_weight == net_weight:
-            net_weight = (io_thrpt/params[1]) / ((io_thrpt/params[1]) + (net_thrpt/params[0]))
-            io_weight = 1-net_weight
-            logger.info(f"Weight: I/O - {io_weight}, Network - {net_weight}")
+        storage_cost = 0
+        if used_disk>limit and used_disk > used_before:
+            storage_cost = (used_disk - used_before) / used_before
+
+        cc_impact_nl = K**params[0]
+        io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
+        io_score_value = np.round(io_score * (-1))
+
+        # if io_weight == net_weight:
+        #     net_weight = (io_thrpt/params[1]) / ((io_thrpt/params[1]) + (net_thrpt/params[0]))
+        #     io_weight = 1-net_weight
+        #     logger.info(f"Weight: I/O - {io_weight}, Network - {net_weight}")
     else:
         io_score_value = 0
-        io_weight = 0
-        net_weight = 1
+        # io_weight = 0
+        # net_weight = 1
         io_thrpt = 0
 
-    score_value = io_weight * io_score_value + net_weight * net_score_value
+    # score_value = io_weight * io_score_value + net_weight * net_score_value
     logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
-    logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps, Score: {score_value}")
 
     if not rQueue:
         io_score_value = exit_signal
@@ -377,6 +373,7 @@ def multi_params_probing(params):
     if not rQueue and not tQueue:
         net_score_value = exit_signal
 
+    logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
     return [net_score_value, io_score_value] #score_value
 
 
@@ -497,11 +494,7 @@ def graceful_exit(signum=None, frame=None):
     except Exception as e:
         logger.debug(e)
 
-    try:
-        shutil.rmtree(tmpfs_dir)
-    except Exception as e:
-        logger.debug(e)
-
+    shutil.rmtree(tmpfs_dir, ignore_errors=True)
     exit(1)
 
 
@@ -516,7 +509,7 @@ if __name__ == '__main__':
     configurations["io_thread_limit"] = io_cc if io_cc>0 else mp.cpu_count()
 
     log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
-    log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
+    log_file = f'logs/sender.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'
 
     if configurations["loglevel"] == "debug":
         logger.basicConfig(
@@ -572,10 +565,10 @@ if __name__ == '__main__':
     chunk_size = 1 * 1024 * 1024
     transfer_process_status = mp.Array("i", [0 for i in range(configurations["network_thread_limit"])])
     io_process_status = mp.Array("i", [0 for i in range(configurations["io_thread_limit"])])
-    transfer_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-    io_file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+    transfer_file_offsets = mp.Array("d", [0 for i in range(file_count)])
+    io_file_offsets = mp.Array("d", [0 for i in range(file_count)])
 
-    io_weight, net_weight = 1, 1
+    # io_weight, net_weight = 1, 1
 
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
     RCVR_ADDR = str(HOST) + ":" + str(PORT)
@@ -583,7 +576,7 @@ if __name__ == '__main__':
     try:
         os.mkdir(tmpfs_dir)
     except Exception as e:
-        logger.error(e)
+        logger.debug(str(e))
         exit(1)
 
     _, free = available_space(tmpfs_dir)
@@ -592,6 +585,7 @@ if __name__ == '__main__':
     rQueue = manager.dict()
     tQueue = manager.dict()
     gQueue = manager.list()
+
     for i in range(file_count):
         rQueue[i] = 0
 
@@ -636,7 +630,7 @@ if __name__ == '__main__':
 
     end = time.time()
     time_since_begining = np.round(end-start, 3)
-    total = np.round(np.sum(transfer_file_offsets) / (1024*1024*1024), 3)
+    total = np.round(np.sum(file_sizes) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_since_begining,2)
     logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
         total, time_since_begining, thrpt))
@@ -656,7 +650,4 @@ if __name__ == '__main__':
             p.terminate()
             p.join(timeout=0.1)
 
-    try:
-        shutil.rmtree(tmpfs_dir)
-    except Exception as e:
-        logger.debug(e)
+    shutil.rmtree(tmpfs_dir, ignore_errors=True)
