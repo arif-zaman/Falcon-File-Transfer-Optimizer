@@ -332,11 +332,11 @@ def gradient_multivariate(configurations, black_box_function, logger, verbose=Tr
         count += 1
         values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
         cache_net[abs(values[-1][0])] = ccs[-1][0]
-        cache_io[abs(values[-1][0])] = ccs[-1][1]
+        cache_io[abs(values[-1][1])] = ccs[-1][1]
 
 
         if len(cache_net) >= 10:
-            soft_limit_net = cache_net[max(cache_net.keys())]
+            soft_limit_net = min(cache_net[max(cache_net.keys())], values[-1][2])
             cache_net.popitem(last=True)
 
         if len(cache_io) >= 10:

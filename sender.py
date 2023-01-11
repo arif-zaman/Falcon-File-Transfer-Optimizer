@@ -39,15 +39,16 @@ def copy_file(process_id):
                             chunk = ff.read(block_size)
 
                             os.lseek(fd, int(offset), os.SEEK_SET)
-                            offset_update = time.time()
+                            # offset_update = time.time()
                             while chunk and io_process_status[process_id] == 1:
                                 os.write(fd, chunk)
                                 offset += len(chunk)
 
-                                ## Update every 100 milliseconds
-                                if time.time()-offset_update > 0.1:
-                                    io_file_offsets[file_id] = offset
-                                    offset_update = time.time()
+                                # Update every 100 milliseconds
+                                # if time.time()-offset_update > 0.1:
+                                io_file_offsets[file_id] = offset
+
+                                    # offset_update = time.time()
 
                                 if io_limit > 0:
                                     second_data_count += len(chunk)
@@ -71,7 +72,6 @@ def copy_file(process_id):
                                 tQueue[file_id] = 0
 
                         os.close(fd)
-
                     else:
                         io_file_offsets[file_id] = file_sizes[file_id]
                         tQueue[file_id] = 0
@@ -145,7 +145,7 @@ def transfer_file(process_id):
                                 block_size = min(chunk_size, to_send)
 
                             if file_transfer:
-                                    sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
+                                sent = sock.sendfile(file=file, offset=int(offset), count=int(block_size))
                             else:
                                 data_to_send = bytearray(int(block_size))
                                 sent = sock.send(data_to_send)
@@ -374,7 +374,7 @@ def multi_params_probing(params):
         net_score_value = exit_signal
 
     logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
-    return [net_score_value, io_score_value] #score_value
+    return [net_score_value, io_score_value, len(tQueue)] #score_value
 
 
 def normal_transfer(params):
@@ -458,7 +458,7 @@ def report_network_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             network_throughput_logs.append(curr_thrpt)
-            # logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
+            logger.info(f"Network Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
 
@@ -632,8 +632,8 @@ if __name__ == '__main__':
     time_since_begining = np.round(end-start, 3)
     total = np.round(np.sum(file_sizes) / (1024*1024*1024), 3)
     thrpt = np.round((total*8*1024)/time_since_begining,2)
-    logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
-        total, time_since_begining, thrpt))
+    # logger.info("Total: {0} GB, Time: {1} sec, Throughput: {2} Mbps".format(
+    #     total, time_since_begining, thrpt))
 
     for p in copy_workers:
         if p.is_alive():
