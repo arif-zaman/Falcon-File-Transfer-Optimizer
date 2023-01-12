@@ -40,6 +40,24 @@ def available_space(path="/dev/shm/data/"):
         return (0,0)
 
 
+def get_dir_size(logger, path="/dev/shm/"):
+    total = 0
+    try:
+        with os.scandir(path) as iter:
+            for entry in iter:
+                if entry.is_file():
+                    total += entry.stat().st_size
+                elif entry.is_dir():
+                    total += get_dir_size(entry.path)
+
+        total = np.round(total/10**9, 3)
+        logger.debug(f"Path={path} -- Size={total} GB")
+    except Exception as e:
+        logger.debug(e)
+
+    return total
+
+
 def run(cmd, logger):
     try:
         cmd_output = subprocess.run(cmd.split())
