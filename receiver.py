@@ -11,7 +11,7 @@ import numpy as np
 import multiprocessing as mp
 from threading import Thread
 from config_receiver import configurations
-from utils import available_space, run
+from utils import available_space, get_dir_size, run
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, exit_signal
 warnings.filterwarnings("ignore", category=FutureWarning)
 
@@ -102,7 +102,7 @@ def receive_file(sock, process_id):
         try:
             client, address = sock.accept()
             logger.debug("{u} connected".format(u=address))
-            used, _ = available_space(tmpfs_dir)
+            used = get_dir_size(logger,tmpfs_dir)
             while used > memory_limit:
                 time.sleep(0.1)
 
@@ -196,8 +196,8 @@ def io_probing(params):
     cc_impact_nl = K**params[0]
     score = thrpt/cc_impact_nl
     score_value = np.round(score * (-1))
-    used_after, free = available_space(tmpfs_dir)
-    logger.info(f"Shared Memory -- Used: {used_after}GB, Free: {free}GB")
+    used = get_dir_size(logger, tmpfs_dir)
+    logger.info(f"Shared Memory -- Used: {used}GB")
     logger.info("I/O Probing -- Throughput: {0}Mbps, Score: {1}".format(
         np.round(thrpt), score_value))
 
@@ -214,7 +214,7 @@ def run_optimizer(probing_func):
     params = [2]
     if configurations["method"].lower() == "hill_climb":
         logger.info("Running Hill Climb Optimization .... ")
-        params = hill_climb(configurations, probing_func, logger)
+        params = hill_climb(configurations["thread_limit"], probing_func, logger)
 
     elif configurations["method"].lower() == "gradient":
         logger.info("Running Gradient Optimization .... ")
@@ -222,7 +222,7 @@ def run_optimizer(probing_func):
 
     elif configurations["method"].lower() == "cg":
         logger.info("Running Conjugate Optimization .... ")
-        params = cg_opt(configurations, probing_func)
+        params = cg_opt(False, probing_func)
 
     elif configurations["method"].lower() == "probe":
         logger.info("Running a fixed configurations Probing .... ")

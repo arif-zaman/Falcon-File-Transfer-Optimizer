@@ -11,7 +11,7 @@ import multiprocessing as mp
 from threading import Thread
 from config_sender import configurations
 from search import base_optimizer, hill_climb, cg_opt, gradient_opt_fast, gradient_multivariate
-from utils import tcp_stats, run, available_space
+from utils import tcp_stats, run, available_space, get_dir_size
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 
@@ -20,7 +20,7 @@ def copy_file(process_id):
         if io_process_status[process_id] == 1:
             logger.debug(f'Starting Copying Thread: {process_id}')
             try:
-                used, _ = available_space(tmpfs_dir)
+                used = get_dir_size(logger, tmpfs_dir)
                 if used < memory_limit:
                     file_id, offset = rQueue.popitem()
                     if file_transfer:
@@ -259,13 +259,13 @@ def io_probing(params):
     logger.debug("Active CC - I/O: {0}".format(np.sum(io_process_status)))
     time.sleep(1)
     n_time = time.time() + probing_time - 1.05
-    used_before, _ = available_space(tmpfs_dir)
+    used_before = get_dir_size(logger, tmpfs_dir)
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
         time.sleep(0.1)
 
-    used_disk, free = available_space(tmpfs_dir)
-    logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
+    used_disk = get_dir_size(logger, tmpfs_dir)
+    logger.info(f"Shared Memory -- Used: {used_disk}GB")
     thrpt = np.mean(io_throughput_logs[-2:]) if len(io_throughput_logs) > 2 else 0
     K = float(configurations["K"])
     limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
@@ -311,7 +311,7 @@ def multi_params_probing(params):
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    used_before, _ = available_space(tmpfs_dir)
+    used_before = get_dir_size(logger, tmpfs_dir)
     # Sleep
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
@@ -321,7 +321,7 @@ def multi_params_probing(params):
     curr_sc, curr_rc = tcp_stats(RCVR_ADDR, logger)
     sc, rc = curr_sc - prev_sc, curr_rc - prev_rc
     logger.debug("TCP Segments >> Send Count: {0}, Retrans Count: {1}".format(sc, rc))
-    used_disk, free = available_space(tmpfs_dir)
+    used_disk = get_dir_size(logger, tmpfs_dir)
 
     ## Network Score
     net_thrpt = np.round(np.mean(network_throughput_logs[-2:])) if len(network_throughput_logs) > 2 else 0
@@ -364,7 +364,7 @@ def multi_params_probing(params):
         io_thrpt = 0
 
     # score_value = io_weight * io_score_value + net_weight * net_score_value
-    logger.info(f"Shared Memory -- Used: {used_disk}GB, Free: {free}GB")
+    logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
 
     if not rQueue:
@@ -399,27 +399,28 @@ def run_optimizer(probing_func):
     if configurations["mp_opt"]:
         if configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
-            params = cg_opt(configurations, probing_func)
+            params = cg_opt(configurations["mp_opt"], probing_func)
 
         elif configurations["method"].lower() == "mgd":
             logger.info("Running Multivariate Gradient Optimization .... ")
-            params = gradient_multivariate(configurations, probing_func, logger)
+            params = gradient_multivariate(io_cc, net_cc, probing_func, logger)
         else:
             logger.info("Running Bayesian Optimization .... ")
             params = base_optimizer(configurations, probing_func, logger)
 
     else:
+        cc_limit = net_cc if probing_func is network_probing else io_cc
         if configurations["method"].lower() == "hill_climb":
             logger.info("Running Hill Climb Optimization .... ")
-            params = hill_climb(configurations, probing_func, logger)
+            params = hill_climb(cc_limit, probing_func, logger)
 
         elif configurations["method"].lower() == "gradient":
             logger.info("Running Gradient Optimization .... ")
-            params = gradient_opt_fast(configurations["thread_limit"], probing_func, logger)
+            params = gradient_opt_fast(cc_limit, probing_func, logger)
 
         elif configurations["method"].lower() == "cg":
             logger.info("Running Conjugate Optimization .... ")
-            params = cg_opt(configurations, probing_func)
+            params = cg_opt(configurations["mp_opt"], probing_func)
 
         elif configurations["method"].lower() == "probe":
             logger.info("Running a fixed configurations Probing .... ")
@@ -503,10 +504,11 @@ if __name__ == '__main__':
     signal.signal(signal.SIGTERM, graceful_exit)
 
     net_cc = configurations["max_cc"]["network"]
-    configurations["network_thread_limit"] = net_cc if net_cc>0 else mp.cpu_count()
+    net_cc = net_cc if net_cc>0 else mp.cpu_count()
 
     io_cc = configurations["max_cc"]["io"]
-    configurations["io_thread_limit"] = io_cc if io_cc>0 else mp.cpu_count()
+    io_cc = io_cc if io_cc>0 else mp.cpu_count()
+    configurations["thread_limit"] = max(net_cc, io_cc)
 
     log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
     log_file = f'logs/sender.{datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S")}.log'
@@ -563,8 +565,8 @@ if __name__ == '__main__':
     io_throughput_logs = manager.list()
     exit_signal = 10 ** 10
     chunk_size = 1 * 1024 * 1024
-    transfer_process_status = mp.Array("i", [0 for i in range(configurations["network_thread_limit"])])
-    io_process_status = mp.Array("i", [0 for i in range(configurations["io_thread_limit"])])
+    transfer_process_status = mp.Array("i", [0 for i in range(net_cc)])
+    io_process_status = mp.Array("i", [0 for i in range(io_cc)])
     transfer_file_offsets = mp.Array("d", [0 for i in range(file_count)])
     io_file_offsets = mp.Array("d", [0 for i in range(file_count)])
 
@@ -589,12 +591,12 @@ if __name__ == '__main__':
     for i in range(file_count):
         rQueue[i] = 0
 
-    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(configurations["io_thread_limit"])]
+    copy_workers = [mp.Process(target=copy_file, args=(i,)) for i in range(io_cc)]
     for p in copy_workers:
         p.daemon = True
         p.start()
 
-    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(configurations["network_thread_limit"])]
+    transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(net_cc)]
     for p in transfer_workers:
         p.daemon = True
         p.start()
