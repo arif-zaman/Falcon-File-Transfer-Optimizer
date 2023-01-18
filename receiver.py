@@ -58,8 +58,9 @@ def move_file(process_id):
                         mQueue.append(fname)
                     else:
                         move_complete.value += 1
-                        gQueue.append(fname)
                         logger.debug(f'I/O :: {fname}')
+                        run(f'rm {tmpfs_dir}{fname}', logger)
+                        logger.debug(f'Cleanup :: {fname}')
 
                 os.close(fd)
 
@@ -73,28 +74,6 @@ def move_file(process_id):
             logger.debug(f'Exiting File Mover Thread: {process_id}')
         else:
             time.sleep(0.1)
-
-
-def garbage_collector(process_id):
-    logger.debug(f'Starting Garbage Collector Thread: {process_id}')
-    while transfer_done.value == 0 or cleanup_complete.value < move_complete.value:
-        try:
-            if gQueue:
-                fname = gQueue.pop()
-                run(f'rm {tmpfs_dir}{fname}', logger)
-                cleanup_complete.value += 1
-                logger.debug(f'Cleanup :: {fname}')
-            else:
-                time.sleep(1)
-
-        except IndexError:
-            time.sleep(0.1)
-
-        except Exception as e:
-            # logger.exception(e)
-            time.sleep(0.1)
-
-    logger.debug(f'Exiting Garbage Collector Thread: {process_id}')
 
 
 def receive_file(sock, process_id):
@@ -120,8 +99,9 @@ def receive_file(sock, process_id):
 
                 if file_transfer:
                     file_stats = header.split(",")
-                    filecount.value, filename = int(file_stats[0]), str(file_stats[1])
-                    offset, to_rcv = int(file_stats[2]), int(file_stats[3])
+                    tq_size, rq_size = int(file_stats[0]), int(file_stats[1]),
+                    filename = str(file_stats[2])
+                    offset, to_rcv = int(file_stats[3]), int(file_stats[4])
 
                     if direct_io:
                         fd = os.open(tmpfs_dir+filename, os.O_CREAT | os.O_RDWR | os.O_DIRECT | os.O_SYNC)
@@ -155,6 +135,9 @@ def receive_file(sock, process_id):
                             mQueue.append(filename)
                             break
                     os.close(fd)
+
+                    if rq_size == 0 and tq_size == 0:
+                        transfer_done.value = 1
                 else:
                     chunk = client.recv(chunk_size)
                     while chunk:
@@ -248,8 +231,8 @@ def report_network_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>10:
-            if sum(throughput_logs[-3:]) == 0:
+        if time_since_begining>15:
+            if sum(throughput_logs[-15:]) == 0:
                 transfer_done.value  = 1
                 break
 
@@ -282,9 +265,9 @@ def report_io_throughput():
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>10:
-            if sum(io_throughput_logs[-5:]) == 0:
-                transfer_done.value  = 1
+        if time_since_begining>15:
+            if sum(io_throughput_logs[-15:]) == 0:
+                transfer_done.value = 1
                 move_complete.value = transfer_complete.value
                 break
 
@@ -308,9 +291,7 @@ def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
         transfer_done.value  = 1
-        time.sleep(1)
         move_complete.value = transfer_complete.value
-        cleanup_complete.value = move_complete.value
         time.sleep(1)
         shutil.rmtree(tmpfs_dir, ignore_errors=True)
     except Exception as e:
@@ -366,9 +347,7 @@ if __name__ == '__main__':
     HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
     transfer_complete = mp.Value("i", 0)
     move_complete = mp.Value("i", 0)
-    cleanup_complete = mp.Value("i", 0)
     transfer_done = mp.Value("i", 0)
-    filecount = mp.Value("i", 1)
     io_process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
     transfer_file_offsets = mp.Manager().dict()
     io_file_offsets = mp.Manager().dict() ## figure out file_count
@@ -376,7 +355,6 @@ if __name__ == '__main__':
     io_throughput_logs = mp.Manager().list()
 
     mQueue = mp.Manager().list()
-    gQueue = mp.Manager().list()
     start, end = mp.Value("i", 0), mp.Value("i", 0)
 
     direct_io = False
@@ -412,11 +390,6 @@ if __name__ == '__main__':
         p.daemon = True
         p.start()
 
-    cleanup_workers = [mp.Process(target=garbage_collector, args=(i,)) for i in range(5)]
-    for p in cleanup_workers:
-        p.daemon = True
-        p.start()
-
     network_report_thread = Thread(target=report_network_throughput)
     network_report_thread.start()
 
@@ -443,14 +416,8 @@ if __name__ == '__main__':
     while move_complete.value < transfer_complete.value:
         time.sleep(0.1)
 
-    cleanup_complete.value = move_complete.value
     time.sleep(1)
     for p in io_workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
-
-    for p in cleanup_workers:
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)

@@ -1,6 +1,6 @@
 configurations = {
     "receiver": {
-        "host": "10.1.2.3",
+        "host": "134.197.113.71",
         "port": 50021
     },
     "data_dir": "/data/arif1/",
@@ -11,7 +11,7 @@ configurations = {
     },
     "max_cc": 15,
     "K": 1.02,
-    "probing_sec": 3.1, # probing interval in seconds
+    "probing_sec": 3, # probing interval in seconds
     "file_transfer": True,
     "io_limit": -1, # I/O limit (Mbps) per thread
     "loglevel": "info",
