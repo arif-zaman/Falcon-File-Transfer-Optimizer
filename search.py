@@ -246,25 +246,36 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
     count = 0
     cache_net = OrderedDict()
     cache_io = OrderedDict()
-    soft_limit_net = max_io_cc
-    soft_limit_io = max_net_cc
     io_opt = True
     values = []
     ccs = [[1,1]]
 
     while True:
         count += 1
+        soft_limit_net = max_net_cc
+        soft_limit_io = max_io_cc
         values.append(run_probe(ccs[-1], count, verbose, logger, black_box_function))
         cache_net[abs(values[-1][0])] = ccs[-1][0]
         cache_io[abs(values[-1][1])] = ccs[-1][1]
 
 
-        if len(cache_net) >= 10:
-            soft_limit_net = min(cache_net[max(cache_net.keys())], max_net_cc, values[-1][2])
+        if len(cache_net) % 8 == 0:
+            soft_limit_net = min(cache_net[max(cache_net.keys())], max_net_cc)
+            # if values[-1][2] <= 5:
+            #     soft_limit_net = 1
+            # else:
+            #     soft_limit_net = min(soft_limit_net, values[-1][2])
+
+            # cache_net.popitem(last=True)
+
+        if len(cache_io) % 8 == 0:
+            soft_limit_io = min(cache_io[max(cache_io.keys())], max_io_cc)
+            # cache_io.popitem(last=True)
+
+        if len(cache_net)>20:
             cache_net.popitem(last=True)
 
-        if len(cache_io) >= 10:
-            soft_limit_io = min(cache_io[max(cache_io.keys())], max_io_cc)
+        if len(cache_io)>20:
             cache_io.popitem(last=True)
 
 
@@ -288,20 +299,24 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
                 gradient = (curr - prev)/prev if prev != 0 else 1
 
             update_cc_net = int(np.ceil(ccs[-1][0] * gradient))
-            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net+1, max_net_cc)
+            next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net)
 
             # I/O
-            next_cc_io = 0
+            next_cc_io = ccs[-1][1]
             if io_opt:
                 difference = ccs[-1][1] - ccs[-2][1]
                 prev, curr = values[-2][1], values[-1][1]
-                if difference != 0 and prev !=0:
-                    gradient = (curr - prev)/(difference*prev)
-                else:
-                    gradient = (curr - prev)/prev if prev !=0 else 1
+                logger.debug((prev, curr))
+                if curr != 0:
+                    if difference != 0 and prev !=0:
+                        gradient = (curr - prev)/(difference*prev)
+                    else:
+                        gradient = (curr - prev)/prev if prev !=0 else 1
 
-                update_cc_io = int(np.ceil(ccs[-1][1] * gradient))
-                next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io+1, max_io_cc)
+                    update_cc_io = int(np.ceil(ccs[-1][1] * gradient))
+                    next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io)
+                    logger.debug((update_cc_io, next_cc_io, soft_limit_io))
+
 
             ccs.append([next_cc_net, next_cc_io])
             logger.debug(f"Gradient: {gradient}")

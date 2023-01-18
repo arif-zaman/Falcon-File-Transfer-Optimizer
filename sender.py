@@ -87,25 +87,6 @@ def copy_file(process_id):
     io_process_status[process_id] = 0
 
 
-def garbage_collector(process_id):
-    logger.debug(f'Starting Garbage Collector Thread: {process_id}')
-    while rQueue or tQueue:
-        try:
-            file_id = gQueue.pop()
-            fname = file_names[file_id]
-            run(f'rm {tmpfs_dir}{fname}', logger)
-            logger.debug(f'Cleanup :: {file_id}!')
-
-        except IndexError:
-            time.sleep(1)
-
-        except Exception as e:
-            logger.debug(str(e))
-            time.sleep(0.1)
-
-    logger.debug(f'Exiting Garbage Collector Thread: {process_id}')
-
-
 def transfer_file(process_id):
     while rQueue or tQueue:
         if transfer_process_status[process_id] == 1:
@@ -133,7 +114,7 @@ def transfer_file(process_id):
                         if file_transfer:
                             file = open(filename, "rb")
 
-                        msg = f"{file_count},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
+                        msg = f"{len(rQueue)},{len(tQueue)},{file_names[file_id]},{int(offset)},{int(to_send)}\n"
                         sock.send(msg.encode())
                         logger.debug(f"starting {process_id}, {filename}, {offset}, {len(tQueue)}")
 
@@ -177,7 +158,8 @@ def transfer_file(process_id):
                         else:
                             logger.debug(f'Transfer :: {file_id}!')
                             if file_transfer:
-                                gQueue.append(file_id)
+                                run(f'rm {filename}', logger)
+                                logger.debug(f'Cleanup :: {file_id}!')
 
                     else:
                         tQueue[file_id] = offset
@@ -235,7 +217,7 @@ def network_probing(params):
     score = (thrpt/cc_impact_nl) - (thrpt * plr_impact)
     score_value = np.round(score * (-1))
 
-    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
+    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info("Network Probing -- Throughput: {0}Mbps, Loss Rate: {1}%, Score: {2}".format(
         np.round(thrpt), np.round(lr*100, 2), score_value))
 
@@ -282,7 +264,7 @@ def io_probing(params):
     score = thrpt/cc_impact_nl - thrpt*storage_cost
     score_value = np.round(score * (-1))
 
-    # logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
+    # logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
     logger.info(f"I/O Probing -- Throughput: {np.round(thrpt)}Mbps, Score: {score_value}")
     if not rQueue:
         return exit_signal
@@ -311,7 +293,7 @@ def multi_params_probing(params):
     # Before
     prev_sc, prev_rc = tcp_stats(RCVR_ADDR, logger)
     n_time = time.time() + probing_time - 1.05
-    used_before = get_dir_size(logger, tmpfs_dir)
+    # used_before = get_dir_size(logger, tmpfs_dir)
     # Sleep
     # time.sleep(n_time)
     while (time.time() < n_time) and (rQueue or tQueue):
@@ -337,35 +319,21 @@ def multi_params_probing(params):
     net_score_value = np.round(net_score * (-1))
 
     ## I/O score
+    io_thrpt = 0
     if rQueue:
         io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
-        limit = min(configurations["memory_use"]["threshold"], memory_limit//2)
-        storage_cost = K + max(0,used_disk-limit)/(limit*10)
-        cc_impact_nl = storage_cost**params[1]
-        # io_score = io_thrpt/cc_impact_nl
-        # io_score_value = np.round(io_score * (-1))
-
+        cc_impact_nl = K**params[1]
         storage_cost = 0
-        if used_disk>limit and used_disk > used_before:
-            storage_cost = (used_disk - used_before) / used_before
+        curr_size = len(tQueue)
+        if curr_size>2*net_cc:
+            storage_cost = (curr_size - 2*net_cc) / float(max(10, net_cc))
 
-        cc_impact_nl = K**params[0]
         io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
+        io_score = io_thrpt/cc_impact_nl
         io_score_value = np.round(io_score * (-1))
 
-        # if io_weight == net_weight:
-        #     net_weight = (io_thrpt/params[1]) / ((io_thrpt/params[1]) + (net_thrpt/params[0]))
-        #     io_weight = 1-net_weight
-        #     logger.info(f"Weight: I/O - {io_weight}, Network - {net_weight}")
-    else:
-        io_score_value = 0
-        # io_weight = 0
-        # net_weight = 1
-        io_thrpt = 0
-
-    # score_value = io_weight * io_score_value + net_weight * net_score_value
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
-    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}, gQueue: {len(gQueue)}")
+    logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
 
     if not rQueue:
         io_score_value = exit_signal
@@ -444,11 +412,11 @@ def report_network_throughput(start_time):
         t1 = time.time()
         time_since_begining = np.round(t1-start_time, 1)
 
-        if time_since_begining>10:
-            if sum(network_throughput_logs[-10:]) == 0:
-                logger.info(f"transfer queue: {tQueue}")
-                rQueue.clear()
-                tQueue.clear()
+        # if time_since_begining>10:
+        #     if sum(network_throughput_logs[-10:]) == 0:
+        #         logger.info(f"transfer queue: {tQueue}")
+        #         rQueue.clear()
+        #         tQueue.clear()
 
         if time_since_begining >= 0.1:
             total_bytes = np.sum(transfer_file_offsets)
@@ -481,7 +449,7 @@ def report_io_throughput(start_time):
             curr_thrpt = np.round((curr_total*8)/(curr_time_sec*1000*1000), 2)
             previous_time, previous_total = time_since_begining, total_bytes
             io_throughput_logs.append(curr_thrpt)
-            # logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
+            logger.info(f"I/O Throughput @{time_since_begining}s, Current: {curr_thrpt}Mbps, Average: {thrpt}Mbps")
 
             t2 = time.time()
             time.sleep(max(0, 1 - (t2-t1)))
@@ -586,7 +554,6 @@ if __name__ == '__main__':
 
     rQueue = manager.dict()
     tQueue = manager.dict()
-    gQueue = manager.list()
 
     for i in range(file_count):
         rQueue[i] = 0
@@ -598,11 +565,6 @@ if __name__ == '__main__':
 
     transfer_workers = [mp.Process(target=transfer_file, args=(i,)) for i in range(net_cc)]
     for p in transfer_workers:
-        p.daemon = True
-        p.start()
-
-    cleanup_workers = [mp.Process(target=garbage_collector, args=(i,)) for i in range(5)]
-    for p in cleanup_workers:
         p.daemon = True
         p.start()
 
@@ -643,11 +605,6 @@ if __name__ == '__main__':
             p.join(timeout=0.1)
 
     for p in transfer_workers:
-        if p.is_alive():
-            p.terminate()
-            p.join(timeout=0.1)
-
-    for p in cleanup_workers:
         if p.is_alive():
             p.terminate()
             p.join(timeout=0.1)
