@@ -343,6 +343,7 @@ def multi_params_probing(params):
 
     logger.info(f"Probing -- I/O: {io_thrpt}Mbps, Network: {net_thrpt}Mbps")
     return [net_score_value, io_score_value, len(tQueue)] #score_value
+    # return (net_score_value+io_score_value) / 2
 
 
 def normal_transfer(params):

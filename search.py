@@ -259,16 +259,11 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
         cache_io[abs(values[-1][1])] = ccs[-1][1]
 
 
-        if len(cache_net) % 8 == 0:
+        if count % 5 == 0:
             soft_limit_net = min(cache_net[max(cache_net.keys())], max_net_cc)
-            # if values[-1][2] <= 5:
-            #     soft_limit_net = 1
-            # else:
-            #     soft_limit_net = min(soft_limit_net, values[-1][2])
-
             # cache_net.popitem(last=True)
 
-        if len(cache_io) % 8 == 0:
+        if count > 8:
             soft_limit_io = min(cache_io[max(cache_io.keys())], max_io_cc)
             # cache_io.popitem(last=True)
 
@@ -298,11 +293,15 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
             else:
                 gradient = (curr - prev)/prev if prev != 0 else 1
 
-            update_cc_net = int(np.ceil(ccs[-1][0] * gradient))
+            update_cc_net = ccs[-1][0] * gradient
+            if update_cc_net>0:
+                update_cc_net = max(1, int(np.round(update_cc_net)))
+            else:
+                update_cc_net = min(-1, int(np.round(update_cc_net)))
             next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net)
 
             # I/O
-            next_cc_io = ccs[-1][1]
+            next_cc_io = max(1, ccs[-1][1] // 2)
             if io_opt:
                 difference = ccs[-1][1] - ccs[-2][1]
                 prev, curr = values[-2][1], values[-1][1]
@@ -313,7 +312,12 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
                     else:
                         gradient = (curr - prev)/prev if prev !=0 else 1
 
-                    update_cc_io = int(np.ceil(ccs[-1][1] * gradient))
+                    update_cc_io = ccs[-1][1] * gradient
+                    if update_cc_io>0:
+                        update_cc_io = max(1, int(np.round(update_cc_io)))
+                    else:
+                        update_cc_io = min(-1, int(np.round(update_cc_io)))
+
                     next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io)
                     logger.debug((update_cc_io, next_cc_io, soft_limit_io))
 
