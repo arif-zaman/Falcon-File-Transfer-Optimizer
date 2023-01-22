@@ -190,18 +190,23 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
 def gradient_opt_fast(max_cc, black_box_function, logger, verbose=True):
     count = 0
     cache = OrderedDict()
-    soft_limit = max_cc
     values = []
     ccs = [1]
-    theta = 0
 
     while True:
         count += 1
+        soft_limit = max_cc
         values.append(run_probe([ccs[-1]], count, verbose, logger, black_box_function))
         cache[abs(values[-1])] = ccs[-1]
 
         if len(cache) >= 10:
             soft_limit = min(cache[max(cache.keys())], max_cc)
+            cache.popitem(last=True)
+
+        if count % 10 == 0:
+            soft_limit = min(cache[max(cache.keys())], max_cc)
+
+        if len(cache)>20:
             cache.popitem(last=True)
 
         if values[-1] == exit_signal:
@@ -211,33 +216,22 @@ def gradient_opt_fast(max_cc, black_box_function, logger, verbose=True):
         if len(ccs) == 1:
             ccs.append(2)
         else:
-            dist = max(1, np.abs(ccs[-1] - ccs[-2]))
-            if ccs[-1]>ccs[-2]:
-                gradient = (values[-1] - values[-2])/dist
+            difference = ccs[-1] - ccs[-2]
+            prev, curr = values[-2], values[-1]
+            if difference != 0 and prev !=0:
+                gradient = (curr - prev)/(difference*prev)
             else:
-                gradient = (values[-2] - values[-1])/dist
+                gradient = (curr - prev)/prev if prev != 0 else 1
 
-            if values[-2] !=0:
-                gradient_change = np.abs(gradient/values[-2])
+            update_cc = ccs[-1] * gradient
+            if update_cc>0:
+                update_cc = max(1, int(np.round(update_cc)))
             else:
-                gradient_change = np.abs(gradient)
+                update_cc = min(-1, int(np.round(update_cc)))
 
-            if gradient>0:
-                if theta <= 0:
-                    theta -= 1
-                else:
-                    theta = -1
-
-            else:
-                if theta >= 0:
-                    theta += 1
-                else:
-                    theta = 1
-
-            update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
-            next_cc = min(max(ccs[-1] + update_cc, 1), soft_limit+1, max_cc)
-            logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
-            ccs.append(next_cc)
+            ccs.append(min(max(ccs[-1] + update_cc, 1), soft_limit))
+            logger.debug(f"Gradient: {gradient}")
+            logger.info(f"Previous CC: {ccs[-2]}")
 
     return [ccs[-1]]
 
