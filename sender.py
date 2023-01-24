@@ -279,14 +279,15 @@ def multi_params_probing(params):
     if not rQueue and not tQueue:
         return [exit_signal, exit_signal]
 
-    params = [1 if x<1 else int(np.round(x)) for x in params]
+    params[0] = max(1,  int(np.round(params[0])))
     logger.info("Probing Parameters - [Network, I/O]: {0}".format(params))
 
     for i in range(len(transfer_process_status)):
         transfer_process_status[i] = 1 if i < params[0] else 0
 
-    for i in range(len(io_process_status)):
-        io_process_status[i] = 1 if (i < params[1] and rQueue) else 0
+    if params[1]:
+        for i in range(len(io_process_status)):
+            io_process_status[i] = 1 if (i < params[1] and rQueue) else 0
 
     time.sleep(1)
 
@@ -320,23 +321,22 @@ def multi_params_probing(params):
 
     ## I/O score
     io_thrpt = 0
-    if rQueue:
+    if params[1] and rQueue:
         io_thrpt = np.round(np.mean(io_throughput_logs[-2:])) if len(io_throughput_logs) > 2 else 0
         cc_impact_nl = K**params[1]
-        storage_cost = 0
-        curr_size = len(tQueue)
-        if curr_size>2*net_cc:
-            storage_cost = (curr_size - 2*net_cc) / float(max(10, net_cc))
+        # storage_cost = 0
+        # curr_size = len(tQueue)
+        # if curr_size>2*net_cc:
+        #     storage_cost = (curr_size - 2*net_cc) / float(max(10, net_cc))
 
-        io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
+        # io_score = io_thrpt/cc_impact_nl - io_thrpt*storage_cost
         io_score = io_thrpt/cc_impact_nl
         io_score_value = np.round(io_score * (-1))
+    else:
+        io_score_value = exit_signal
 
     logger.info(f"Shared Memory -- Used: {used_disk}GB")
     logger.info(f"rQueue:{len(rQueue)}, tQueue:{len(tQueue)}")
-
-    if not rQueue:
-        io_score_value = exit_signal
 
     if not rQueue and not tQueue:
         net_score_value = exit_signal

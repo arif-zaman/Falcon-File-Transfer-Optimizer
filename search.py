@@ -199,10 +199,6 @@ def gradient_opt_fast(max_cc, black_box_function, logger, verbose=True):
         values.append(run_probe([ccs[-1]], count, verbose, logger, black_box_function))
         cache[abs(values[-1])] = ccs[-1]
 
-        if len(cache) >= 10:
-            soft_limit = min(cache[max(cache.keys())], max_cc)
-            cache.popitem(last=True)
-
         if count % 10 == 0:
             soft_limit = min(cache[max(cache.keys())], max_cc)
 
@@ -255,16 +251,10 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
 
         if count % 5 == 0:
             soft_limit_net = min(cache_net[max(cache_net.keys())], max_net_cc)
-            # cache_net.popitem(last=True)
-
-        if count > 8:
             soft_limit_io = min(cache_io[max(cache_io.keys())], max_io_cc)
-            # cache_io.popitem(last=True)
 
-        if len(cache_net)>20:
+        if len(cache_net)>20 or len(cache_io)>20:
             cache_net.popitem(last=True)
-
-        if len(cache_io)>20:
             cache_io.popitem(last=True)
 
 
@@ -292,6 +282,7 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
                 update_cc_net = max(1, int(np.round(update_cc_net)))
             else:
                 update_cc_net = min(-1, int(np.round(update_cc_net)))
+
             next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net)
 
             # I/O
@@ -314,7 +305,8 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
 
                     next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io)
                     logger.debug((update_cc_io, next_cc_io, soft_limit_io))
-
+            else:
+                next_cc_io = 0
 
             ccs.append([next_cc_net, next_cc_io])
             logger.debug(f"Gradient: {gradient}")
