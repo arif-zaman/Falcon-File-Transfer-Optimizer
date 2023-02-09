@@ -6,6 +6,7 @@ import numpy as np
 import time
 
 exit_signal = 10 ** 10
+cc_change_limit = 5
 
 def base_optimizer(configurations, black_box_function, logger, verbose=True):
     limit_obs, count = 20, 0
@@ -220,10 +221,11 @@ def gradient_opt_fast(max_cc, black_box_function, logger, verbose=True):
                 gradient = (curr - prev)/prev if prev != 0 else 1
 
             update_cc = ccs[-1] * gradient
+            ## +- 5 : limit fluctuations
             if update_cc>0:
-                update_cc = max(1, int(np.round(update_cc)))
+                update_cc = min(max(1, int(np.round(update_cc))), cc_change_limit)
             else:
-                update_cc = min(-1, int(np.round(update_cc)))
+                update_cc = max(min(-1, int(np.round(update_cc))), -cc_change_limit)
 
             ccs.append(min(max(ccs[-1] + update_cc, 1), soft_limit))
             logger.debug(f"Gradient: {gradient}")
@@ -279,9 +281,9 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
 
             update_cc_net = ccs[-1][0] * gradient
             if update_cc_net>0:
-                update_cc_net = max(1, int(np.round(update_cc_net)))
+                update_cc_net = min(max(1, int(np.round(update_cc_net))), cc_change_limit)
             else:
-                update_cc_net = min(-1, int(np.round(update_cc_net)))
+                update_cc_net = max(min(-1, int(np.round(update_cc_net))), -cc_change_limit)
 
             next_cc_net = min(max(ccs[-1][0] + update_cc_net, 1), soft_limit_net)
 
@@ -299,9 +301,9 @@ def gradient_multivariate(max_io_cc, max_net_cc, black_box_function, logger, ver
 
                     update_cc_io = ccs[-1][1] * gradient
                     if update_cc_io>0:
-                        update_cc_io = max(1, int(np.round(update_cc_io)))
+                        update_cc_io = min(max(1, int(np.round(update_cc_io))), cc_change_limit)
                     else:
-                        update_cc_io = min(-1, int(np.round(update_cc_io)))
+                        update_cc_io = max(min(-1, int(np.round(update_cc_io))), -cc_change_limit)
 
                     next_cc_io = min(max(ccs[-1][1] + update_cc_io, 1), soft_limit_io)
                     logger.debug((update_cc_io, next_cc_io, soft_limit_io))
