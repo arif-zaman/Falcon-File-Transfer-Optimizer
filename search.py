@@ -10,7 +10,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
     max_thread = configurations["thread_limit"]
     iterations = configurations["bayes"]["num_of_exp"]
     mp_opt = configurations["mp_opt"]
-    
+
     if mp_opt:
         search_space  = [
             Integer(1, max_thread), # Concurrency
@@ -34,14 +34,14 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         # acq_func_kwargs= {},
         # acq_optimizer_kwargs={}
     )
-    
+
     while True:
         count += 1
 
         if len(optimizer.yi) > limit_obs:
             optimizer.yi = optimizer.yi[-limit_obs:]
             optimizer.Xi = optimizer.Xi[-limit_obs:]
-        
+
         if verbose:
             logger.info("Iteration {0} Starts ...".format(count))
 
@@ -57,7 +57,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
         if last_value == 10 ** 10:
             logger.info("Optimizer Exits ...")
             break
-        
+
         cc = optimizer.Xi[-1][0]
         if iterations < 1:
             reset = False
@@ -68,7 +68,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             if (last_value < 0) and (cc == max_thread) and (cc < configurations["thread_limit"]):
                 max_thread = min(cc+5, configurations["thread_limit"])
                 reset = True
-            
+
             if reset:
                 search_space[0] = Integer(1, max_thread)
                 optimizer = Optimizer(
@@ -82,7 +82,7 @@ def base_optimizer(configurations, black_box_function, logger, verbose=True):
             logger.info("Best parameters: {0} and score: {1}".format(res.x, res.fun))
             params = res.x
             break
-        
+
     return params
 
 
@@ -91,10 +91,10 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
     params = [1]
     phase, count = 1, 0
     current_value, previous_value = 0, 0
-    
+
     while True:
         count += 1
-        
+
         if verbose:
             logger.info("Iteration {0} Starts ...".format(count))
 
@@ -109,7 +109,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
         if current_value == 10 ** 10:
             logger.info("Optimizer Exits ...")
             break
-        
+
         if phase == 1:
             if (current_value > previous_value):
                 params[0] = min(max_thread, params[0]+1)
@@ -125,7 +125,7 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
             else:
                 params[0] = max(1, params[0]-1)
                 previous_value = current_value
-            
+
         else:
             change = (current_value-previous_value)/previous_value
             previous_value = current_value
@@ -135,18 +135,18 @@ def hill_climb(configurations, black_box_function, logger, verbose=True):
             elif change < -0.1:
                 phase = -1
                 params[0] = max(1, params[0]-1)
-                
+
     return params
 
 
 def cg_opt(configurations, black_box_function):
     mp_opt = configurations["mp_opt"]
-    
+
     if mp_opt:
         starting_params = [1, 1, 1, 10]
     else:
         starting_params = [1]
-        
+
     optimizer = minimize(
         method="CG",
         fun=black_box_function,
@@ -155,14 +155,14 @@ def cg_opt(configurations, black_box_function):
             "eps":1, # step size
         },
     )
-    
+
     return optimizer.x
-    
+
 
 def lbfgs_opt(configurations, black_box_function):
     max_thread = configurations["thread_limit"]
     mp_opt = configurations["mp_opt"]
-    
+
     if mp_opt:
         starting_params = [1, 1, 1, 10]
         search_space  = [
@@ -176,7 +176,7 @@ def lbfgs_opt(configurations, black_box_function):
         search_space  = [
             (1, max_thread), # Concurrency
             ]
-        
+
     optimizer = minimize(
         method="L-BFGS-B",
         fun=black_box_function,
@@ -187,15 +187,15 @@ def lbfgs_opt(configurations, black_box_function):
             "eps":1, # step size
         },
     )
-    
+
     return optimizer.x
 
-    
-def dummy(configurations, black_box_function, logger, verbose=False):    
+
+def dummy(configurations, black_box_function, logger, verbose=False):
     search_space  = [
         Integer(1, configurations["thread_limit"])
     ]
-    
+
     optimizer = dummy_minimize(
         func=black_box_function,
         dimensions=search_space,
@@ -205,21 +205,21 @@ def dummy(configurations, black_box_function, logger, verbose=False):
         y0=None,
         verbose=verbose,
     )
-    
+
     return optimizer.x
 
 
 def brute_force(configurations, black_box_function, logger, verbose=False):
     score = []
     max_thread = configurations["thread_limit"]
-    
+
     for i in range(1, max_thread+1):
         score.append(black_box_function([i]))
-        
+
         if score[-1] == 10 ** 10:
             break
-    
-    
+
+
     cc = np.argmin(score) + 1
     logger.info("Best parameters: {0} and score: {1}".format([cc], score[cc-1]))
     return [cc]
@@ -236,7 +236,7 @@ def run_probe(current_cc, count, verbose, logger, black_box_function):
     if verbose:
         logger.info("Iteration {0} Ends, Took {1} Seconds. Score: {2}.".format(
             count, np.round(t2-t1, 2), current_value))
-    
+
     return current_value
 
 
@@ -252,7 +252,7 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
         if values[-1] == 10 ** 10:
             logger.info("Optimizer Exits ...")
             break
-        
+
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
@@ -265,25 +265,25 @@ def gradient_opt(configurations, black_box_function, logger, verbose=True):
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
-            
+
         count += 2
-        
-        
+
+
         gradient = (values[-1] - values[-2])/2
         gradient_change = np.abs(gradient/values[-2])
-        
+
         if gradient>0:
             if theta <= 0:
                 theta -= 1
             else:
                 theta = -1
-                
+
         else:
             if theta >= 0:
                 theta += 1
             else:
                 theta = 1
-        
+
         update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
         next_cc = min(max(ccs[-1] + update_cc, 2), soft_limit-1)
         logger.info("Gradient: {0}, Gredient Change: {1}, Theta: {2}, Previous CC: {3}, Choosen CC: {4}".format(gradient, gradient_change, theta, ccs[-1], next_cc))
@@ -310,34 +310,34 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
         if values[-1] < least_cost:
             least_cost = values[-1]
             soft_limit = min(ccs[-1]+10, max_thread)
-        
+
         if len(ccs) == 1:
             ccs.append(2)
-        
+
         else:
             dist = max(1, np.abs(ccs[-1] - ccs[-2]))
             if ccs[-1]>ccs[-2]:
                 gradient = (values[-1] - values[-2])/dist
             else:
                 gradient = (values[-2] - values[-1])/dist
-            
+
             if values[-2] !=0:
                 gradient_change = np.abs(gradient/values[-2])
             else:
                 gradient_change = np.abs(gradient)
-            
+
             if gradient>0:
                 if theta <= 0:
                     theta -= 1
                 else:
                     theta = -1
-                    
+
             else:
                 if theta >= 0:
                     theta += 1
                 else:
                     theta = 1
-        
+
 
             update_cc = int(theta * np.ceil(ccs[-1] * gradient_change))
             next_cc = min(max(ccs[-1] + update_cc, 2), soft_limit)
@@ -346,3 +346,41 @@ def gradient_opt_fast(configurations, black_box_function, logger, verbose=True):
             ccs.append(next_cc)
 
     return [ccs[-1]]
+
+
+def binary_search(configurations, black_box_function, logger, verbose=True):
+    max_thread, count = configurations["thread_limit"], 0
+    left, right = 1, max_thread
+    values = {}
+    ccs = [left]
+
+    while left<=right:
+        count += 1
+        cost = run_probe(ccs[-1], count, verbose, logger, black_box_function)
+        values[ccs[-1]] = cost * -1
+
+        if cost == 10 ** 10:
+            logger.info("Optimizer Exits ...")
+            break
+
+        if len(ccs) == 1:
+            ccs.append(right)
+            continue
+
+        if len(ccs) == 2:
+            mid  = (left+right) // 2
+            ccs.append(mid)
+            continue
+
+        logger.info(f"l, m, r: {left}:{values[left]}, {mid}:{values[mid]}, {right}:{values[right]}")
+        if values[mid] > values[right]:
+            right = mid
+        else:
+            left = mid
+
+        mid = (left+right) // 2
+        ccs.append(mid)
+
+    return [mid]
+
+
