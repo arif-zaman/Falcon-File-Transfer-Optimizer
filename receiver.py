@@ -109,8 +109,7 @@ if __name__ == '__main__':
     iter = 0
     while iter<1:
         iter += 1
-        log.info(f">>>>>> Iterations: {iter} >>>>>>")
-
+        log.info(">>>>>> Iterations: {0} >>>>>>".format(iter))
 
         process_status = mp.Array("i", [0 for _ in range(num_workers)])
         workers = [mp.Process(target=worker, args=(sock, i,)) for i in range(num_workers)]
