@@ -12,7 +12,7 @@ import multiprocessing as mp
 from threading import Thread
 from concurrent.futures import ThreadPoolExecutor
 from config_sender import configurations
-from search import  base_optimizer, dummy, brute_force, hill_climb, cg_opt, lbfgs_opt, gradient_opt_fast
+from search import  base_optimizer, brute_force, hill_climb, cg_opt, gradient_opt_fast, binary_search
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
@@ -359,13 +359,13 @@ def run_transfer():
         log.info("Running Gradient Optimization .... ")
         params = gradient_opt_fast(configurations, sample_transfer, log)
 
+    elif configurations["method"].lower() == "binary":
+        log.info("Running Binary Search Optimization .... ")
+        params = binary_search(configurations, sample_transfer, log)
+
     elif configurations["method"].lower() == "cg":
         log.info("Running Conjugate Optimization .... ")
         params = cg_opt(configurations, sample_transfer)
-
-    elif configurations["method"].lower() == "lbfgs":
-        log.info("Running LBFGS Optimization .... ")
-        params = lbfgs_opt(configurations, sample_transfer)
 
     elif configurations["method"].lower() == "probe":
         log.info("Running a fixed configurations Probing .... ")
