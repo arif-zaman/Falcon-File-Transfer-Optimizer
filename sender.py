@@ -7,6 +7,7 @@ import socket
 import warnings
 import datetime
 import numpy as np
+import psutil
 import logging as log
 import multiprocessing as mp
 from threading import Thread
@@ -90,6 +91,7 @@ num_workers = mp.Value("i", 0)
 file_incomplete = mp.Value("i", file_count)
 process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
 file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+cpus = manager.list()
 
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 RCVR_ADDR = str(HOST) + ":" + str(PORT)
@@ -138,13 +140,14 @@ def worker(process_id, q):
                 sock.connect((HOST, PORT))
 
                 if emulab_test:
-                    target, factor = 20, 10
+                    target, factor = 2500, 10
                     max_speed = (target * 1000 * 1000)/8
                     second_target, second_data_count = int(max_speed/factor), 0
 
                 while (not q.empty()) and (process_status[process_id] == 1):
                     try:
                         file_id = q.get()
+
                     except:
                         process_status[process_id] = 0
                         break
@@ -391,6 +394,12 @@ def report_throughput(start_time):
         if time_since_begining >= 0.1:
             if time_since_begining >= 3 and sum(throughput_logs[-3:]) == 0:
                 file_incomplete.value = 0
+
+            # if time_since_begining >= 60:
+            #     file_incomplete.value = 0
+
+            # cpus.append(psutil.cpu_percent())
+            # log.info(f"cpu: curr - {np.round(cpus[-1], 4)}, avg - {np.round(np.mean(cpus), 4)}")
 
             total_bytes = np.sum(file_offsets)
             thrpt = np.round((total_bytes*8)/(time_since_begining*1000*1000), 2)
