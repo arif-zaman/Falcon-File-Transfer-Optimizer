@@ -4,12 +4,14 @@ import time
 import socket
 import logging as log
 import numpy as np
+import psutil
 import multiprocessing as mp
 from config_receiver import configurations
 
 chunk_size = mp.Value("i", 1024*1024)
 root = configurations["data_dir"]
 HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+cpus = mp.Manager().list()
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 if configurations["loglevel"] == "debug":
@@ -92,6 +94,18 @@ def worker(sock, process_num):
             # raise e
 
 
+def report_throughput():
+    global cpus
+    time.sleep(1)
+
+    while sum(process_status) > 0:
+        t1 = time.time()
+        cpus.append(psutil.cpu_percent())
+        log.info(f"cpu: curr - {np.round(cpus[-1], 4)}, avg - {np.round(np.mean(cpus), 4)}")
+        t2 = time.time()
+        time.sleep(max(0, 1 - (t2-t1)))
+
+
 if __name__ == '__main__':
     direct_io = False
     file_transfer = True
@@ -124,15 +138,20 @@ if __name__ == '__main__':
         #         break
 
         process_status[0] = 1
-        alive = num_workers
-        while alive>0:
-            alive = 0
-            for i in range(num_workers):
-                if process_status[i] == 1:
-                    alive += 1
+        # alive = num_workers
+        # reporting_process = mp.Process(target=report_throughput)
+        # reporting_process.daemon = True
+        # reporting_process.start()
+
+        while sum(process_status) > 0:
+            # alive = sum(process_status)
+            # for i in range(num_workers):
+            #     if process_status[i] == 1:
+            #         alive += 1
 
             time.sleep(0.1)
 
+        # reporting_process.terminate()
         for p in workers:
             if p.is_alive():
                 p.terminate()
