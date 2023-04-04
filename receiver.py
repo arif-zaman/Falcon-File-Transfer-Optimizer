@@ -290,9 +290,10 @@ def report_io_throughput():
 def graceful_exit(signum=None, frame=None):
     logger.debug((signum, frame))
     try:
+        sock.close()
         transfer_done.value  = 1
         move_complete.value = transfer_complete.value
-        time.sleep(1)
+        # time.sleep()
         shutil.rmtree(tmpfs_dir, ignore_errors=True)
     except Exception as e:
         logger.debug(e)
