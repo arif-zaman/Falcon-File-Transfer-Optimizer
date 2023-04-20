@@ -8,6 +8,8 @@ import warnings
 import datetime
 import numpy as np
 import psutil
+import pprint
+import argparse
 import logging as log
 import multiprocessing as mp
 from threading import Thread
@@ -17,10 +19,7 @@ from search import  base_optimizer, brute_force, hill_climb, cg_opt, gradient_op
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
-configurations["thread_limit"] = configurations["max_cc"]
-
-if configurations["thread_limit"] == -1:
-    configurations["thread_limit"] = configurations["cpu_count"]
+configurations["thread_limit"] = max(configurations["max_cc"], configurations["cpu_count"])
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
@@ -61,8 +60,8 @@ centralized = False
 if "centralized" in configurations and configurations["centralized"] is not None:
     centralized = configurations["centralized"]
 
-executor = ThreadPoolExecutor(max_workers=5)
 if centralized:
+    executor = ThreadPoolExecutor(max_workers=5)
     from redis import Redis
     transfer_id = str(uuid.uuid4())
     ## Redis Config
@@ -76,25 +75,6 @@ if centralized:
 file_transfer = True
 if "file_transfer" in configurations and configurations["file_transfer"] is not None:
     file_transfer = configurations["file_transfer"]
-
-manager = mp.Manager()
-root = configurations["data_dir"]
-probing_time = configurations["probing_sec"]
-file_names = os.listdir(root) * configurations["multiplier"]
-file_sizes = [os.path.getsize(root+filename) for filename in file_names]
-file_count = len(file_names)
-throughput_logs = manager.list()
-
-exit_signal = 10 ** 10
-chunk_size = 1 * 1024 * 1024
-num_workers = mp.Value("i", 0)
-file_incomplete = mp.Value("i", file_count)
-process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
-file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
-cpus = manager.list()
-
-HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
-RCVR_ADDR = str(HOST) + ":" + str(PORT)
 
 
 def tcp_stats():
@@ -346,10 +326,6 @@ def run_transfer():
     if centralized:
         run_centralized()
 
-    elif configurations["method"].lower() == "random":
-        log.info("Running Random Optimization .... ")
-        params = dummy(configurations, sample_transfer, log)
-
     elif configurations["method"].lower() == "brute":
         log.info("Running Brute Force Optimization .... ")
         params = brute_force(configurations, sample_transfer, log)
@@ -419,6 +395,48 @@ def report_throughput(start_time):
 
 
 if __name__ == '__main__':
+    pp = pprint.PrettyPrinter(indent=4)
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--host", help="Receiver Host Address")
+    parser.add_argument("--port", help="Receiver Port Number")
+    parser.add_argument("--data_dir", help="Sender Data Directory")
+    parser.add_argument("--method", help="choose one of them : gradient, bayes, brute, probe")
+    args = vars(parser.parse_args())
+    # pp.pprint(f"Command line arguments: {args}")
+
+    if args["host"]:
+        configurations["receiver"]["host"] = args["host"]
+
+    if args["port"]:
+        configurations["receiver"]["port"] = int(args["port"])
+
+    if args["data_dir"]:
+        configurations["data_dir"] = args["data_dir"]
+
+    if args["method"]:
+        configurations["method"] = args["method"]
+
+    pp.pprint(configurations)
+
+    manager = mp.Manager()
+    root = configurations["data_dir"]
+    probing_time = configurations["probing_sec"]
+    file_names = os.listdir(root) * configurations["multiplier"]
+    file_sizes = [os.path.getsize(root+filename) for filename in file_names]
+    file_count = len(file_names)
+    throughput_logs = manager.list()
+
+    exit_signal = 10 ** 10
+    chunk_size = 1 * 1024 * 1024
+    num_workers = mp.Value("i", 0)
+    file_incomplete = mp.Value("i", file_count)
+    process_status = mp.Array("i", [0 for i in range(configurations["thread_limit"])])
+    file_offsets = mp.Array("d", [0.0 for i in range(file_count)])
+    cpus = manager.list()
+
+    HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+    RCVR_ADDR = str(HOST) + ":" + str(PORT)
+
     if centralized:
         try:
             r_conn.xadd(register_key, {"transfer_id": transfer_id})
