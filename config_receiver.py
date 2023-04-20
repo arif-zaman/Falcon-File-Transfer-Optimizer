@@ -1,10 +1,10 @@
 configurations = {
     "receiver": {
-        "host": "10.10.2.2",
-        "port": 50021
+        "host": "10.1.2.4",
+        "port": 8000
     },
-    "data_dir": "/data/dest_dir/",
-    "max_cc": 20,
+    "data_dir": "/data/dest/",
+    "max_cc": 100,
     "file_transfer": True,
     "loglevel": "info",
 }

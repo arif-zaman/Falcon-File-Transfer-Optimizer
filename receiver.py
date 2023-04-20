@@ -2,6 +2,8 @@ import os
 import mmap
 import time
 import socket
+import pprint
+import argparse
 import logging as log
 import numpy as np
 import psutil
@@ -9,8 +11,6 @@ import multiprocessing as mp
 from config_receiver import configurations
 
 chunk_size = mp.Value("i", 1024*1024)
-root = configurations["data_dir"]
-HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
 cpus = mp.Manager().list()
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
@@ -107,14 +107,35 @@ def report_throughput():
 
 
 if __name__ == '__main__':
+    pp = pprint.PrettyPrinter(indent=4)
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--host", help="Receiver Host Address")
+    parser.add_argument("--port", help="Receiver Port Number")
+    parser.add_argument("--data_dir", help="Receiver Data Directory")
+    args = vars(parser.parse_args())
+    # pp.pprint(f"Command line arguments: {args}")
+
+    if args["host"]:
+        configurations["receiver"]["host"] = args["host"]
+
+    if args["port"]:
+        configurations["receiver"]["port"] = int(args["port"])
+
+    if args["data_dir"]:
+        configurations["data_dir"] = args["data_dir"]
+
+    configurations["cpu_count"] = mp.cpu_count()
+    pp.pprint(configurations)
+
     direct_io = False
+    root = configurations["data_dir"]
+    HOST, PORT = configurations["receiver"]["host"], configurations["receiver"]["port"]
+
     file_transfer = True
     if "file_transfer" in configurations and configurations["file_transfer"] is not None:
         file_transfer = configurations["file_transfer"]
 
-    num_workers = configurations['max_cc']
-    if num_workers == -1:
-        num_workers = mp.cpu_count()
+    num_workers = min(max(1,configurations["max_cc"]), configurations["cpu_count"])
 
     sock = socket.socket()
     sock.bind((HOST, PORT))
@@ -138,17 +159,11 @@ if __name__ == '__main__':
         #         break
 
         process_status[0] = 1
-        # alive = num_workers
         # reporting_process = mp.Process(target=report_throughput)
         # reporting_process.daemon = True
         # reporting_process.start()
 
         while sum(process_status) > 0:
-            # alive = sum(process_status)
-            # for i in range(num_workers):
-            #     if process_status[i] == 1:
-            #         alive += 1
-
             time.sleep(0.1)
 
         # reporting_process.terminate()

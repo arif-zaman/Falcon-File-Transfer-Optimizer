@@ -19,7 +19,7 @@ from search import  base_optimizer, brute_force, hill_climb, cg_opt, gradient_op
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 configurations["cpu_count"] = mp.cpu_count()
-configurations["thread_limit"] = max(configurations["max_cc"], configurations["cpu_count"])
+configurations["thread_limit"] = min(max(1,configurations["max_cc"]), configurations["cpu_count"])
 
 log_FORMAT = '%(created)f -- %(levelname)s: %(message)s'
 log_file = "logs/" + datetime.datetime.now().strftime("%m_%d_%Y_%H_%M_%S") + ".log"
