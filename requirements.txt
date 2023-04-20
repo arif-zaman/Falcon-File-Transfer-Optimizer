@@ -1,4 +1,4 @@
-joblib==1.0.1
+joblib==1.2.0
 numpy==1.22.0
 pyaml==20.4.0
 PyYAML==5.4.1
