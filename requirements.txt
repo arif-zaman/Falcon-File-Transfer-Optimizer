@@ -4,5 +4,5 @@ pyaml==20.4.0
 PyYAML==5.4.1
 scikit-learn==0.24.2
 scikit-optimize==0.8.1
-scipy==1.5.4
+scipy==1.10.0
 threadpoolctl==2.1.0
